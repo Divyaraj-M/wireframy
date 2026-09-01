@@ -4,7 +4,7 @@ Lo-fi wireframing without leaving your vault. A drag-and-drop editor with 82 UI 
 
 **82 widgets · 160 icons · transform in place · labelled arrows · presentation mode · no clickable prototyping.**
 
-![The Wireframy editor](docs/editor.png)
+![A tour of Wireframy](docs/tour.gif)
 
 ## Why
 
@@ -46,8 +46,6 @@ Collapsed, it is a bar of two tabs and a search box floating over the top-left o
 
 **Elements** opens on an **Essentials** tier — the fourteen you reach for constantly — then the full set by group.
 
-![The icon browser](docs/icons.png)
-
 **Icons** is all 160 as a grid, searchable by name *or* by one of 70 synonyms (`email` finds `mail`, `gear` finds `settings`), with the name under each one so you know what to type in a `wf` block. Searching Elements for something only the icons have — "camera", "printer" — offers to take you across, keeping what you typed.
 
 ## Shapes and text
@@ -67,8 +65,6 @@ triangle:
 
 Hover an element's edge, click the nub, then click the element you want to point at. Arrows are cubic curves that follow their elements when you move them.
 
-![Editing an arrow's label](docs/arrow-label.png)
-
 **Double-click an arrow** and a box opens on the curve itself. Type what makes the transition happen — `signs in`, `clicks a row` — and `Enter` keeps it. Clearing the text removes the label.
 
 ## Changing your mind
@@ -84,8 +80,6 @@ Position, size and any attached arrows survive, and it is one undo step. This is
 - **Present this board** (`Mod+Shift+F`) — chrome-free and read-only, for a meeting. `Esc` comes back.
 - **Copy this board as an image** (`Mod+Shift+C`) — renders the *whole* board, not the viewport, to a PNG beside the file and onto the clipboard where the platform allows it. An element 3000px off-screen still lands in the picture.
 - **Lock this board** — read-only. Panning and zooming still work; nothing can be moved. For the board you opened only to look at.
-
-![An exported board](docs/export.png)
 
 ## Keeping the thinking with the drawing
 
@@ -195,6 +189,32 @@ A `.wire` file is plain JSON: a skin, a viewport, a flat list of absolutely-posi
 ```
 
 It diffs cleanly in git, and anything can read it. That is the point of it living in your vault rather than in someone's cloud.
+
+## Screenshots
+
+<details>
+<summary>The four frames above, full size</summary>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/editor.png" alt="The editor: three screens, labelled arrows and the inspector"></td>
+    <td width="50%"><img src="docs/icons.png" alt="The icon browser: 160 icons in a searchable grid"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>The editor</em></td>
+    <td align="center"><em>The icon browser</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/arrow-label.png" alt="An arrow label being edited inline on the curve"></td>
+    <td width="50%"><img src="docs/export.png" alt="A board exported as a PNG, with no editor chrome"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Labelling an arrow</em></td>
+    <td align="center"><em>An exported board</em></td>
+  </tr>
+</table>
+
+</details>
 
 ## Known limits
 
