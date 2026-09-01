@@ -218,4 +218,4 @@ manifest.json  the plugin manifest
 
 [MIT](LICENSE) © Divyaraj Murugan
 
-Balsamiq is a trademark of Balsamiq Studios. Wireframy is inspired by it, is not affiliated with it, and contains none of its artwork — the 160 icons and every widget here are original.
+Every widget and all 160 icons are drawn from scratch in this repository — no third-party artwork or icon set is bundled.

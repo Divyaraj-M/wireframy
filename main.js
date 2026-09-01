@@ -1,19 +1,19 @@
 'use strict';
 
 /*
- * Wireframy — Balsamiq-style lo-fi wireframing inside Obsidian.
+ * Wireframy — lo-fi wireframing inside Obsidian.
  *
- * Design premise: Canvas already gives you the *structural* half of Balsamiq
- * (an infinite surface, groups that behave like screen frames, edges that
- * behave like flow arrows, snapping, pan/zoom, image export). What it lacks is
- * a widget palette. So instead of bolting a vector editor onto Canvas, this
- * plugin renders UI widgets from a text DSL inside a ```wf code block. A Canvas
- * text node holding one such block *is* a wireframe.
+ * Design premise: Canvas already gives you the *structural* half of a
+ * dedicated wireframing tool (an infinite surface, groups that behave like
+ * screen frames, edges that behave like flow arrows, snapping, pan/zoom, image
+ * export). What it lacks is a widget palette. So instead of bolting a vector
+ * editor onto Canvas, this plugin renders UI widgets from a text DSL inside a
+ * ```wf code block. A Canvas text node holding one such block *is* a wireframe.
  *
  * That choice buys three things for free:
  *   - widgets are diffable text, so wireframes live in git next to the PRD
  *   - a note containing a wf block, embedded as a Canvas file node, is a
- *     Balsamiq "Symbol"/master: edit once, every instance updates
+ *     reusable master: edit once, every instance updates
  *   - no build step; this file is plain CommonJS, drop it in and enable it
  */
 
@@ -96,7 +96,7 @@ function parseWf(src) {
 }
 
 /* ------------------------------------------------------------------ *
- * Value helpers — these are where the Balsamiq text conventions live
+ * Value helpers — these are where the text conventions live
  * ------------------------------------------------------------------ */
 
 // "Save changes (primary, w:200)" -> { text, mods:['primary'], style:{width:'200px'} }
@@ -1240,11 +1240,11 @@ widget(['spinner', 'loading'], {
   }
 });
 
-/* ---------- Annotations (Balsamiq's redlining) ---------- *
- * Job B6: argue with the wireframe on the wireframe. In Balsamiq this is a
- * first-class group with its own slot in the rail, not an afterthought, because
- * saying "this bit is unresolved" next to the thing it is about is half of what
- * a lo-fi wireframe is for. Divider and spacer used to live here; they are
+/* ---------- Annotations (redlining) ---------- *
+ * Job B6: argue with the wireframe on the wireframe. This is a first-class
+ * group with its own slot in the rail, not an afterthought, because saying
+ * "this bit is unresolved" next to the thing it is about is half of what a
+ * lo-fi wireframe is for. Divider and spacer used to live here; they are
  * layout, not commentary, so they moved out.
  */
 
@@ -1317,7 +1317,7 @@ function numRows(node) {
   }).filter(function (r) { return r.label || r.v; });
 }
 
-/* ---------- Balsamiq controls that were missing ---------- */
+/* ---------- Controls that were missing ---------- */
 
 widget(['accordion'], {
   group: 'Navigation', label: 'Accordion', size: [360, 220],
@@ -1618,7 +1618,7 @@ widget(['map'], {
 });
 
 /* ---------- primitives ---------- *
- * The workhorses. Balsamiq's Essentials opens with Rectangle and Text because
+ * The workhorses. The Essentials tier opens with Rectangle and Text because
  * most of wireframing is "I need a box here" and "I need to say something
  * here", and every specific widget is a shortcut for a box you would otherwise
  * draw yourself. These take text, so a rectangle with a word in it - the most
@@ -1909,7 +1909,7 @@ function nodeText(n) {
 /* ------------------------------------------------------------------ *
  * Appending into an existing wireframe
  *
- * The palette is only Balsamiq-like if clicking a widget adds it to the
+ * The palette only earns its place if clicking a widget adds it to the
  * screen you are building, not to a brand-new node. So when a wireframe
  * node is selected we splice the snippet into its last wf block, guessing
  * the indent the way a person would: nest inside the container the block
@@ -2021,7 +2021,7 @@ const CATALOG_INTRO = [
 const GROUP_ORDER = ['Container', 'Navigation', 'Input', 'Action', 'Display', 'Annotations'];
 
 /* Job B5: "the handful you use constantly is available without any search at
- * all." Balsamiq's first group is Essentials, and the same element appears in
+ * all." So the first group is Essentials, and the same element appears in
  * every group where it is relevant rather than in one canonical place. These
  * twelve are cross-listed at the top of the palette; each still belongs to its
  * real group, so the catalog documents every widget exactly once. */
@@ -2297,7 +2297,7 @@ function wfNodeAt(canvas, pos) {
 }
 
 /* ------------------------------------------------------------------ *
- * Quick Add — Balsamiq's keyboard-first widget insertion
+ * Quick Add — keyboard-first widget insertion
  * ------------------------------------------------------------------ */
 
 class QuickAddModal extends FuzzySuggestModal {
@@ -2511,7 +2511,7 @@ class WireframeSettingTab extends PluginSettingTab {
 
     new Setting(c)
       .setName('Skin')
-      .setDesc('Sketch is the Balsamiq-style hand-drawn look. Clean is flat grey boxes. Wire is outline-only, best for print.')
+      .setDesc('Sketch is the hand-drawn look. Clean is flat grey boxes. Wire is outline-only, best for print.')
       .addDropdown((d) => d
         .addOption('sketch', 'Sketch (hand-drawn)')
         .addOption('clean', 'Clean (flat grey)')
@@ -2551,9 +2551,9 @@ class WireframeSettingTab extends PluginSettingTab {
  * Master picker
  * ------------------------------------------------------------------ */
 
-/* Balsamiq's Transform-to, which is reachable from the element itself and whose
- * control names the element's CURRENT type. Same-group widgets are listed first
- * because those are the plausible swaps: with an empty query the list you see
+/* Transform-to is reachable from the element itself, and its control names the
+ * element's CURRENT type. Same-group widgets are listed first because those
+ * are the plausible swaps: with an empty query the list you see
  * is the one worth scanning. */
 class TransformModal extends FuzzySuggestModal {
   constructor(app, view, elm) {
@@ -2792,10 +2792,10 @@ const STARTERS = {
  * WIREFRAME EDITOR
  *
  * A standalone editor, not a Canvas add-on. `.wire` files open in a view
- * with a Balsamiq-shaped layout: palette on the left, canvas in the
+ * with the conventional layout: palette on the left, canvas in the
  * middle, property inspector on the right.
  *
- * Elements are absolutely positioned, exactly as in Balsamiq — no flow
+ * Elements are absolutely positioned — no flow
  * layout, no nesting. That is what makes direct manipulation simple: an
  * element is a box you can move and resize, and containers are just
  * boxes you place other boxes on top of.
@@ -3655,10 +3655,9 @@ class WireEditorView extends TextFileView {
     sep();
 
     const g4 = t.createDiv({ cls: 'wire-tb-group wire-tb-sel' });
-    // Balsamiq's best idea: the control that swaps the type is labelled with the
-    // type it currently is, so you always know what you are looking at.
-    // the label is the element's current type, Balsamiq-style; the swap icon
-    // beside it is the verb, so the label must not repeat the glyph
+    // the control that swaps the type is labelled with the type it currently
+    // is, so you always know what you are looking at. The swap icon beside it
+    // is the verb, so the label must not repeat the glyph
     this.transformBtn = btn(g4, 'swap',
       'Transform (' + modLabel('T', true) + ')', () => this.openTransform(), ' ');
     btn(g4, 'copy', 'Duplicate (' + modLabel('D') + ')', () => this.duplicate());
@@ -3735,9 +3734,9 @@ class WireEditorView extends TextFileView {
     try { return canvas.toDataURL('image/png'); } catch (e) { return null; }
   }
 
-  /* Job B2: get the team to agree on what to build. Presenting is a one-keystroke
-   * act in Balsamiq - in the View menu AND in the persistent bottom bar - because
-   * the moment you need it is mid-sentence, not after an export. Nothing can be
+  /* Job B2: get the team to agree on what to build. Presenting is a
+   * one-keystroke act, on the toolbar as well as on a shortcut, because the
+   * moment you need it is mid-sentence, not after an export. Nothing can be
    * edited while presenting: the point is the room looking at one thing. */
   setPresenting(on) {
     const want = !!on;
@@ -3772,7 +3771,7 @@ class WireEditorView extends TextFileView {
     if (this.presenting) new Notice('Presenting. Esc to come back.');
   }
 
-  /* Job B7: Balsamiq's review mode is multiplayer and Obsidian is not, but the
+  /* Job B7: a full review mode is multiplayer and Obsidian is not, but the
    * half that transfers is the read-only view: stop the accidental drag that
    * silently dirties a file you only opened to look at. */
   setLocked(on) {
@@ -3832,8 +3831,8 @@ class WireEditorView extends TextFileView {
 
   /* Two tabs, because there are two libraries. The icons used to be reachable
    * only by typing a name you already knew into an icon widget's value field,
-   * which meant 160 of them were effectively invisible. Balsamiq gives icons
-   * their own slot in the rail for the same reason. */
+   * which meant 160 of them were effectively invisible. Icons get their own
+   * slot in the rail for the same reason. */
   buildPalette() {
     const p = this.paletteEl;
     p.empty();
@@ -3888,7 +3887,7 @@ class WireEditorView extends TextFileView {
   }
 
   /* Collapsed, the palette is a tab strip and a search box floating over the
-   * top-left of the canvas - Balsamiq's flyout model. The stage keeps its full
+   * top-left of the canvas - a flyout, not a dock. The stage keeps its full
    * width either way; typing or clicking opens the list, going back to the
    * board closes it. */
   setPaletteOpen(on) {
@@ -3995,7 +3994,7 @@ class WireEditorView extends TextFileView {
       if (!defs.length) continue;
       any = true;
       // search results keep their group headings, so you learn where things
-      // live by finding them - the same reason Balsamiq keeps them
+      // live by finding them, which a flat result list would not teach
       host.createDiv({ cls: 'wire-pal-group', text: group.name });
       const wrap = host.createDiv({ cls: 'wire-pal-cards' });
       for (const def of defs) {
@@ -4189,7 +4188,7 @@ class WireEditorView extends TextFileView {
       }
       // Connector nubs: always present, faint until you hover the element.
       // Dragging one draws an arrow — no mode to remember, which is how
-      // Obsidian Canvas and Whimsical both do it.
+      // Obsidian Canvas itself behaves.
       if (!box.querySelector('.wire-nubs')) {
         const nubs = box.createDiv({ cls: 'wire-nubs' });
         for (const side of ['n', 'e', 's', 'w']) {
@@ -5132,8 +5131,8 @@ class WireEditorView extends TextFileView {
     }
   }
 
-  /* Balsamiq has no permanent right-hand panel at all - the properties appear
-   * over the selection and vanish with it. This is the same idea within a
+  /* The other option is no permanent right-hand panel at all - properties
+   * appear over the selection and vanish with it. This is the same idea within a
    * docked layout: an empty inspector is 236px of nothing, and the canvas is
    * what the person came for. */
   inspectorHasContent() {
@@ -5619,8 +5618,8 @@ class WireframyPlugin extends Plugin {
     }
   }
 
-  /* Job B3: explore a second idea without abandoning the first. Balsamiq makes
-   * "another take on this" a different act from "a copy of this"; here the
+  /* Job B3: explore a second idea without abandoning the first. "Another take
+   * on this" is a different act from "a copy of this"; here the
    * naming carries that, so the relationship survives in the file list. */
   async duplicateAsAlternative(view) {
     const file = view && view.file;

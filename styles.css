@@ -55,7 +55,7 @@
 
 /* ---------- Skins ---------- */
 
-/* Sketch: Balsamiq's hand-drawn look. The lopsided border-radius is the
+/* Sketch: the hand-drawn look. The lopsided border-radius is the
    classic CSS trick for a "drawn by hand" box; paired with a print-style
    font it reads as deliberately unfinished, which is the whole point. */
 .wf-root.wf-skin-sketch {
@@ -120,7 +120,7 @@
 
 /* ---------- Window / phone chrome ---------- */
 
-/* Browser chrome, shaped like Balsamiq's: a tab strip, a nav cluster, and a
+/* Browser chrome: a tab strip, a nav cluster, and a
    pill address bar, with a heavy rule under the toolbar. */
 .wf-w-window, .wf-w-browser { border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); overflow: hidden; }
 
@@ -475,7 +475,7 @@
 .wf-iconrow-label { font-size: 9.5px; color: var(--wf-ink-faint); text-align: center; }
 
 /* ==================================================================
-   Controls added to match the Balsamiq library
+   Controls added to round out the library
    ================================================================== */
 
 /* accordion */
@@ -693,7 +693,7 @@
 
 /* ==================================================================
    THE EDITOR
-   Balsamiq layout: UI Library left, canvas centre, inspector right.
+   Three-pane layout: element library left, canvas centre, inspector right.
    ================================================================== */
 
 .wire-host { padding: 0 !important; overflow: hidden; }
@@ -723,8 +723,8 @@
 .wire-tb-count { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 
 /* ---- UI Library ---- */
-/* The palette floats over the canvas rather than docking beside it - Balsamiq's
-   flyout model. Collapsed it is a short bar of tabs and a search box; the stage
+/* The palette floats over the canvas rather than docking beside it, as a
+   flyout. Collapsed it is a short bar of tabs and a search box; the stage
    always gets the full width underneath, which is the point. */
 .wire-palette {
   position: absolute; left: 0; top: 0; width: 232px; max-height: 100%;
@@ -1012,7 +1012,7 @@
 .wire-preview.wire-preview-ok { color: var(--interactive-accent); }
 .wire-el.wire-connect-target { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 
-/* A single control should fill the box you gave it, the way it does in Balsamiq.
+/* A single control should fill the box you gave it.
    Restricted to :only-child on purpose — widgets like the browser window build
    their own chrome as several siblings and size them themselves; stretching all
    of those equally gave the tab strip a third of the frame. */
