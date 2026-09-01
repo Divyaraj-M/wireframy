@@ -1629,6 +1629,22 @@ function drawPrimitive(el, node, kind) {
   const info = splitMods(node.value);
   const box = el.createDiv({ cls: 'wf-prim wf-prim-' + kind });
   applyMods(box, info.mods);
+  if (kind === 'triangle') {
+    /* An SVG polygon, not a CSS clip-path. clip-path and masks are only
+     * partially supported on older Obsidian builds, so the community CSS lint
+     * flags both, and a triangle silently rendering as a filled square is a
+     * wireframe showing the reader the wrong shape. preserveAspectRatio="none"
+     * lets it stretch to whatever box was drawn. */
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'wf-prim-tri');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svgChild(svg, 'polygon', {
+      points: '50,0 100,100 0,100',
+      'vector-effect': 'non-scaling-stroke'
+    });
+    box.appendChild(svg);
+  }
   const text = String(info.text || '').trim();
   if (text) box.createDiv({ cls: 'wf-prim-text', text: text });
 }
@@ -5954,10 +5970,14 @@ class WireframyPlugin extends Plugin {
   pickMaster() {
     const canvas = this.requireCanvas();
     if (!canvas) return;
-    const folder = this.settings.mastersFolder.replace(/\/+$/, '');
-    const files = this.app.vault.getMarkdownFiles().filter(function (f) {
-      return f.path.indexOf(folder + '/') === 0;
-    });
+    const folder = normalizePath(String(this.settings.mastersFolder || ''));
+    /* Read the one folder rather than enumerating the vault. getMarkdownFiles()
+     * returns every note the user has and we then threw almost all of them
+     * away; this only ever looks inside the masters folder, which is all the
+     * feature needs and all it should be able to see. */
+    const dir = this.app.vault.getAbstractFileByPath(folder);
+    const files = (dir && Array.isArray(dir.children) ? dir.children : [])
+      .filter(function (f) { return f && f.extension === 'md'; });
     if (!files.length) {
       new Notice('No masters in ' + folder + ' yet. Use "Save selected node as master" first.');
       return;

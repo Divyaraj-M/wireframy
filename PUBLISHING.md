@@ -41,7 +41,7 @@ Then, from this folder:
 ```sh
 git init
 git add .
-git commit -m "Wireframy 1.0.1"
+git commit -m "Wireframy 1.0.2"
 git branch -M main
 git remote add origin https://github.com/Divyaraj-M/wireframy.git
 git push -u origin main
@@ -56,17 +56,17 @@ This is the step with the fiddly rules, and getting it wrong is the most common
 reason a submission bounces.
 
 ```sh
-git tag 1.0.1
-git push origin 1.0.1
+git tag 1.0.2
+git push origin 1.0.2
 ```
 
-**The tag is `1.0.1`, not `v1.0.1`.** It must equal `version` in
+**The tag is `1.0.2`, not `v1.0.2`.** It must equal `version` in
 `manifest.json` exactly. Obsidian reads the tag to find the release.
 
 Then on GitHub → **Releases** → **Draft a new release**:
 
-- **Tag**: choose the existing `1.0.1`
-- **Title**: `1.0.1`
+- **Tag**: choose the existing `1.0.2`
+- **Title**: `1.0.2`
 - **Attach these three files as individual assets** — drag them into the
   "Attach binaries" box one at a time:
   - `main.js`
@@ -103,7 +103,7 @@ back.
 You do not edit and resubmit. You:
 
 1. Make the fix.
-2. Bump `version` in `manifest.json` — `1.0.2`.
+2. Bump `version` in `manifest.json` — `1.0.3`.
 3. Commit, tag `1.0.2`, push the tag.
 4. Publish a new release with the three assets attached again.
 5. Reply on the submission saying which version to look at.

@@ -601,13 +601,30 @@
 }
 .wf-prim-text { text-align: center; overflow-wrap: anywhere; line-height: 1.35; }
 .wf-prim-circle { border-radius: 50%; }
-/* a triangle cannot be a border, so it is a clipped block */
-.wf-prim-triangle {
-  border: none; background: var(--wf-line);
-  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+/* A triangle cannot be a border, so it is an SVG polygon stretched to the box.
+   Not a clip-path: that and masks are only partially supported on older
+   Obsidian, and a triangle that falls back to a square is a lie. */
+/* border: 0, not border: none. `none` leaves the width at its initial `medium`,
+   so the later .wf-m-dashed rule (which sets only border-style) resurrected a
+   3px dashed RECTANGLE around the triangle. An explicit 0 width survives a
+   style-only override. */
+.wf-prim-triangle { border: 0; background: none; position: relative; }
+/* overflow visible so the stroke can sit half outside the viewBox instead of
+   being clipped along the three edges */
+.wf-prim-tri { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+/* Outlined by default, exactly like the rectangle and the circle: a solid black
+   triangle cannot hold the label the widget offers, and text over it was
+   unreadable. vector-effect keeps the stroke even after the non-uniform
+   stretch that lets one triangle be short and wide. */
+.wf-prim-tri polygon {
+  fill: none; stroke: var(--wf-line); stroke-width: var(--wf-bw); stroke-linejoin: round;
 }
+.wf-prim-triangle .wf-prim-text { position: relative; }
 .wf-prim.wf-m-fill { background: var(--wf-fill); }
-.wf-prim-triangle.wf-m-fill { background: var(--wf-line); }
+.wf-prim-triangle.wf-m-fill { background: none; }
+.wf-prim-triangle.wf-m-fill .wf-prim-tri polygon { fill: var(--wf-fill); }
+.wf-prim-triangle.wf-m-dashed .wf-prim-tri polygon { stroke-dasharray: 7 5; }
+.wf-prim-triangle.wf-m-muted .wf-prim-tri polygon { stroke: var(--wf-line-soft); }
 .wf-prim.wf-m-dashed { border-style: dashed; }
 .wf-prim.wf-m-muted { border-color: var(--wf-line-soft); color: var(--wf-ink-soft); }
 .wf-prim.wf-m-bold .wf-prim-text { font-weight: 700; }
@@ -696,7 +713,13 @@
    Three-pane layout: element library left, canvas centre, inspector right.
    ================================================================== */
 
-.wire-host { padding: 0 !important; overflow: hidden; }
+/* Obsidian pads .view-content, and .wire-host IS that element. Beat it on
+   specificity rather than with !important, which the community CSS lint
+   rightly flags: the view type sits on the leaf, so this is 0,2,1 against
+   Obsidian's 0,1,0. The type string is checked against WIRE_VIEW by
+   compliance.test.js, so a renamed view cannot silently un-style the editor. */
+.workspace-leaf-content[data-type="wireframy-editor"] .wire-host { padding: 0; }
+.wire-host { overflow: hidden; }
 .wire-app { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .wire-body { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
 
