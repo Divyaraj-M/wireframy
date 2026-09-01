@@ -69,7 +69,7 @@ Hover an element's edge, click the nub, then click the element you want to point
 
 ## Changing your mind
 
-**Transform to…** (`Mod+Alt+T`) changes what an element **is** while keeping where it is. Text, rows and modifiers carry over wherever the new widget can hold them; the notice names anything it could not:
+**Transform to…** (`⌘⌥T` on macOS, `Ctrl+Alt+T` elsewhere) changes what an element **is** while keeping where it is. Text, rows and modifiers carry over wherever the new widget can hold them; the notice names anything it could not:
 
 > Data table → Button. Text, position and size kept. Dropped: rows, bold.
 
@@ -77,8 +77,8 @@ Position, size and any attached arrows survive, and it is one undo step. This is
 
 ## Showing it to people
 
-- **Present this board** (`Mod+Shift+F`) — chrome-free and read-only, for a meeting. `Esc` comes back.
-- **Copy this board as an image** (`Mod+Shift+C`) — renders the *whole* board, not the viewport, to a PNG beside the file and onto the clipboard where the platform allows it. An element 3000px off-screen still lands in the picture.
+- **Present this board** (`⌘⇧F` / `Ctrl+Shift+F`) — chrome-free and read-only, for a meeting. `Esc` comes back.
+- **Copy this board as an image** (`⌘⇧C` / `Ctrl+Shift+C`) — renders the *whole* board, not the viewport, to a PNG beside the file and onto the clipboard where the platform allows it. An element 3000px off-screen still lands in the picture.
 - **Lock this board** — read-only. Panning and zooming still work; nothing can be moved. For the board you opened only to look at.
 
 ## Keeping the thinking with the drawing
@@ -158,11 +158,15 @@ Plugin-wide:
 - **Save selected node as master**, **Insert master**
 - **Cycle skin**
 
+Shortcuts are written macOS first: `⌘` is Command, `⌥` is Option, `⇧` is Shift.
+On Windows and Linux, `⌘` is `Ctrl`. Obsidian writes the same thing as `Mod`
+in Settings → Hotkeys, where you can rebind any of them.
+
 In the editor — all scoped to an open wireframe, so their bindings stay free everywhere else:
 
-- **Wireframe: transform to…** — `Mod+Alt+T`
-- **Wireframe: present this board** — `Mod+Shift+F`
-- **Wireframe: copy this board as an image** — `Mod+Shift+C`
+- **Wireframe: transform to…** — `⌘⌥T` / `Ctrl+Alt+T`
+- **Wireframe: present this board** — `⌘⇧F` / `Ctrl+Shift+F`
+- **Wireframe: copy this board as an image** — `⌘⇧C` / `Ctrl+Shift+C`
 - **Wireframe: create an alternate version**
 - **Wireframe: write board notes**
 - **Wireframe: lock this board**
