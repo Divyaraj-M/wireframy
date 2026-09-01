@@ -234,6 +234,19 @@ styles.css     three skins plus the editor chrome
 manifest.json  the plugin manifest
 ```
 
+Releases are automated. Bump `version` in `manifest.json`, write
+`docs/release-notes/<version>.md` if you have something to say, then:
+
+```sh
+git tag 1.2.3 && git push origin 1.2.3
+```
+
+`.github/workflows/release.yml` checks the tag against the manifest, attaches
+`main.js`, `manifest.json` and `styles.css` as separate assets, titles the
+release after the tag, and attests their provenance. A tag that disagrees with
+the manifest fails the run rather than publishing something Obsidian cannot
+install.
+
 ## Licence
 
 [MIT](LICENSE) © Divyaraj Murugan
