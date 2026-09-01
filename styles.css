@@ -1,0 +1,1067 @@
+/* ==================================================================
+   Canvas Wireframe — skins and widget styles
+   Tokens first, so all three skins are a token swap plus a few extras.
+   ================================================================== */
+
+.wf-root {
+  --wf-ink: #2b2b2b;
+  --wf-ink-soft: #6a6a6a;
+  --wf-ink-faint: #9a9a9a;
+  --wf-paper: #fdfdfb;
+  --wf-line: #3a3a3a;
+  --wf-line-soft: #b8b8b8;
+  --wf-fill: #ececec;
+  --wf-fill-soft: #f5f5f3;
+  --wf-accent: #2b2b2b;
+  --wf-accent-ink: #fdfdfb;
+  --wf-note: #fff5c2;
+  --wf-note-line: #d8c766;
+  --wf-danger: #b3382f;
+  --wf-radius: 2px;
+  --wf-bw: 1.5px;
+  --wf-gap: 10px;
+  --wf-font: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --wf-fs: 13px;
+
+  font-family: var(--wf-font);
+  font-size: var(--wf-fs);
+  line-height: 1.4;
+  color: var(--wf-ink);
+  background: var(--wf-paper);
+  padding: var(--wf-pad, 24px);
+  border-radius: 3px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.theme-dark .wf-root {
+  --wf-ink: #e4e4e2;
+  --wf-ink-soft: #a8a8a4;
+  --wf-ink-faint: #7a7a76;
+  --wf-paper: #20211f;
+  --wf-line: #c9c9c5;
+  --wf-line-soft: #55564f;
+  --wf-fill: #33352f;
+  --wf-fill-soft: #292b26;
+  --wf-accent: #e4e4e2;
+  --wf-accent-ink: #20211f;
+  --wf-note: #4a4327;
+  --wf-note-line: #857a45;
+  --wf-danger: #e08a80;
+}
+
+.wf-host { overflow: hidden; }
+.wf-root *, .wf-root *::before, .wf-root *::after { box-sizing: border-box; }
+
+/* ---------- Skins ---------- */
+
+/* Sketch: Balsamiq's hand-drawn look. The lopsided border-radius is the
+   classic CSS trick for a "drawn by hand" box; paired with a print-style
+   font it reads as deliberately unfinished, which is the whole point. */
+.wf-root.wf-skin-sketch {
+  --wf-font: "Comic Sans MS", "Segoe Print", "Bradley Hand", "Chalkboard SE", "Marker Felt", "Comic Neue", system-ui, sans-serif;
+  --wf-bw: 2px;
+  --wf-fs: 13.5px;
+}
+.wf-skin-sketch .wf-input,
+.wf-skin-sketch .wf-textarea,
+.wf-skin-sketch .wf-btn,
+.wf-skin-sketch .wf-img,
+.wf-skin-sketch .wf-dropzone,
+.wf-skin-sketch .wf-badge,
+.wf-skin-sketch .wf-alert,
+.wf-skin-sketch .wf-stat,
+.wf-skin-sketch .wf-toolbtn,
+.wf-skin-sketch .wf-page,
+.wf-skin-sketch .wf-note {
+  border-radius: 255px 12px 225px 15px / 15px 225px 12px 255px;
+}
+.wf-skin-sketch .wf-checkbox { border-radius: 40px 6px 60px 5px / 5px 60px 6px 40px; }
+/* A titled card must keep a straight seam between head and body, so the
+   hand-drawn radius only applies to a card that has no title bar. */
+.wf-skin-sketch .wf-card-body:not(.wf-card-title + .wf-card-body) { border-radius: 255px 12px 225px 15px / 15px 225px 12px 255px; }
+
+/* Clean: flat grey lo-fi. Fastest to read, best for handoff. */
+.wf-root.wf-skin-clean {
+  --wf-bw: 1px;
+  --wf-radius: 4px;
+  --wf-line: #9aa0a6;
+  --wf-line-soft: #d6d9dc;
+}
+
+/* Wire: outline only, no fills. Prints well, photocopies well. */
+.wf-root.wf-skin-wire {
+  --wf-bw: 1.25px;
+  --wf-fill: transparent;
+  --wf-fill-soft: transparent;
+  --wf-accent: transparent;
+  --wf-accent-ink: var(--wf-ink);
+}
+.wf-skin-wire .wf-btn { border-width: 2px; font-weight: 600; }
+.wf-skin-wire .wf-m-primary { box-shadow: inset 0 0 0 2px var(--wf-line); }
+
+/* ---------- Layout primitives ---------- */
+
+.wf-stack { display: flex; flex-direction: column; gap: var(--wf-gap); min-width: 0; }
+.wf-w { min-width: 0; }
+.wf-row-box { display: flex; flex-direction: row; gap: var(--wf-gap); align-items: flex-end; min-width: 0; flex-wrap: wrap; }
+.wf-row-box.wf-m-top { align-items: flex-start; }
+.wf-row-box.wf-m-middle { align-items: center; }
+.wf-row-box.wf-m-bottom { align-items: flex-end; }
+.wf-row-box.wf-m-stretch { align-items: stretch; }
+.wf-row-box.wf-m-nowrap { flex-wrap: nowrap; }
+.wf-col-box { flex: 1 1 auto; }
+.wf-w-row { display: block; }
+
+.wf-scroll-box { border: var(--wf-bw) solid var(--wf-line-soft); padding: 8px; max-height: 100%; overflow: hidden; position: relative; }
+.wf-scrollbar { position: absolute; top: 0; right: 0; width: 8px; height: 100%; background: var(--wf-fill-soft); }
+.wf-scrollthumb { width: 100%; height: 40%; background: var(--wf-line-soft); }
+.wf-w-scroll { position: relative; }
+
+/* ---------- Window / phone chrome ---------- */
+
+/* Browser chrome, shaped like Balsamiq's: a tab strip, a nav cluster, and a
+   pill address bar, with a heavy rule under the toolbar. */
+.wf-w-window, .wf-w-browser { border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); overflow: hidden; }
+
+.wf-browser-tabs {
+  display: flex; align-items: flex-end; gap: 2px;
+  background: var(--wf-fill); padding: 5px 10px 0; min-height: 30px;
+}
+.wf-browser-tab {
+  padding: 5px 18px 6px; font-size: 12.5px; color: var(--wf-ink-soft);
+  border-radius: 7px 7px 0 0; white-space: nowrap; max-width: 220px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.wf-browser-tab.wf-active { background: var(--wf-paper); color: var(--wf-ink); }
+
+.wf-browser-bar {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+  background: var(--wf-paper); border-bottom: 2.5px solid var(--wf-line);
+}
+.wf-browser-nav { display: flex; align-items: center; gap: 11px; flex: 0 0 auto; color: var(--wf-ink); }
+.wf-browser-url {
+  flex: 1 1 auto; min-width: 0;
+  border: var(--wf-bw) solid var(--wf-line); border-radius: 999px;
+  background: var(--wf-paper); padding: 5px 16px; font-size: 12.5px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.wf-browser-body { padding: 14px; }
+
+/* When a frame is the entire wireframe, let it fill the Canvas node: chrome
+   pinned to the top, body taking whatever is left. Without this the border
+   closes just under the toolbar and the rest of the node is blank. */
+.wf-root > .wf-w-window:only-child,
+.wf-root > .wf-w-browser:only-child,
+.wf-root > .wf-w-phone:only-child,
+.wf-root > .wf-w-device:only-child,
+.wf-root > .wf-w-screen:only-child { flex: 1 1 auto; min-height: 0; }
+
+.wf-w-window, .wf-w-browser, .wf-w-phone, .wf-w-device {
+  display: flex; flex-direction: column;
+}
+.wf-browser-body, .wf-phone-body { flex: 1 1 auto; min-height: 0; }
+.wf-browser-tabs, .wf-browser-bar, .wf-phone-status { flex: 0 0 auto; }
+
+/* A pill stays a pill in every skin — the earlier sketch override squashed it
+   into a pointed lens. The hand-drawn character comes from the border width. */
+.wf-skin-sketch .wf-browser-url { border-radius: 999px; }
+
+.wf-w-phone, .wf-w-device { border: 3px solid var(--wf-line); border-radius: 26px; background: var(--wf-paper); overflow: hidden; }
+.wf-phone-status { display: flex; justify-content: space-between; padding: 8px 16px 4px; font-size: 11px; color: var(--wf-ink-soft); }
+.wf-phone-icons { letter-spacing: -1px; font-size: 9px; }
+.wf-phone-body { padding: 10px 14px 16px; }
+
+/* ---------- Card / panel / modal / screen ---------- */
+
+.wf-card-title { font-weight: 700; padding: 9px 12px; border: var(--wf-bw) solid var(--wf-line); border-bottom: none; background: var(--wf-fill); }
+.wf-card-body { border: var(--wf-bw) solid var(--wf-line); padding: 12px; }
+.wf-card-title + .wf-card-body { border-top: none; }
+
+.wf-screen-title { font-weight: 700; font-size: 15px; padding-bottom: 6px; border-bottom: 2px solid var(--wf-line); margin-bottom: 10px; }
+.wf-w-modal, .wf-w-dialog { border: var(--wf-bw) solid var(--wf-line); box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.13); background: var(--wf-paper); }
+.wf-modal-head { display: flex; align-items: center; padding: 10px 12px; border-bottom: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); }
+.wf-modal-title { flex: 1 1 auto; font-weight: 700; }
+.wf-modal-x { color: var(--wf-ink-soft); cursor: default; }
+.wf-modal-body { padding: 14px; }
+
+/* ---------- Navigation ---------- */
+
+.wf-navbar { display: flex; gap: 4px; align-items: center; padding: 8px 10px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill-soft); flex-wrap: wrap; }
+.wf-navitem { padding: 5px 10px; color: var(--wf-ink-soft); border-radius: var(--wf-radius); white-space: nowrap; }
+.wf-navitem.wf-active { color: var(--wf-ink); font-weight: 700; background: var(--wf-fill); box-shadow: inset 0 -2px 0 var(--wf-line); }
+
+.wf-tabs { display: flex; gap: 2px; border-bottom: var(--wf-bw) solid var(--wf-line); flex-wrap: wrap; }
+.wf-tab { padding: 7px 14px; color: var(--wf-ink-soft); border: var(--wf-bw) solid transparent; border-bottom: none; white-space: nowrap; }
+.wf-tab.wf-active { color: var(--wf-ink); font-weight: 700; border-color: var(--wf-line); background: var(--wf-paper); margin-bottom: calc(var(--wf-bw) * -1); }
+
+.wf-sidebar { display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill-soft); min-width: 150px; }
+.wf-sideitem { display: flex; align-items: center; gap: 9px; padding: 7px 9px; color: var(--wf-ink-soft); border-radius: var(--wf-radius); white-space: nowrap; }
+.wf-sideglyph { opacity: 0.5; font-size: 11px; }
+.wf-sideitem.wf-active { background: var(--wf-fill); color: var(--wf-ink); font-weight: 700; box-shadow: inset 3px 0 0 var(--wf-line); }
+.wf-w-sidebar, .wf-w-sidenav { flex: 0 0 auto; align-self: stretch; }
+.wf-w-sidebar .wf-sidebar, .wf-w-sidenav .wf-sidebar { height: 100%; }
+
+.wf-crumbs { display: flex; align-items: center; gap: 6px; color: var(--wf-ink-soft); flex-wrap: wrap; }
+.wf-crumb.wf-active { color: var(--wf-ink); font-weight: 700; }
+.wf-crumb-sep { color: var(--wf-ink-faint); }
+
+.wf-steps { display: flex; align-items: center; gap: 0; }
+.wf-step { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 0 auto; }
+.wf-step-dot { width: 26px; height: 26px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line-soft); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--wf-ink-soft); }
+.wf-step-dot.wf-active { border-color: var(--wf-line); background: var(--wf-accent); color: var(--wf-accent-ink); font-weight: 700; }
+.wf-step-dot.wf-done { border-color: var(--wf-line); color: var(--wf-ink); }
+.wf-step-label { font-size: 11px; color: var(--wf-ink-soft); white-space: nowrap; }
+.wf-step-line { flex: 1 1 auto; height: var(--wf-bw); background: var(--wf-line-soft); margin: 0 4px; margin-bottom: 18px; min-width: 16px; }
+.wf-step-line.wf-done { background: var(--wf-line); }
+
+.wf-pager { display: flex; gap: 4px; align-items: center; }
+.wf-page { min-width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: var(--wf-bw) solid var(--wf-line-soft); color: var(--wf-ink-soft); padding: 0 6px; }
+.wf-page.wf-active { border-color: var(--wf-line); background: var(--wf-accent); color: var(--wf-accent-ink); font-weight: 700; }
+
+.wf-toolbar { display: flex; gap: 4px; }
+.wf-toolbtn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: var(--wf-bw) solid var(--wf-line-soft); color: var(--wf-ink-soft); }
+.wf-toolbtn.wf-active { border-color: var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); }
+
+/* ---------- Inputs ---------- */
+
+.wf-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wf-label { font-size: 11.5px; color: var(--wf-ink-soft); font-weight: 600; }
+.wf-input { display: flex; align-items: center; gap: 7px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); padding: 7px 10px; min-height: 32px; border-radius: var(--wf-radius); overflow: hidden; }
+.wf-placeholder { color: var(--wf-ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-value { color: var(--wf-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-inputicon { color: var(--wf-ink-faint); flex: 0 0 auto; }
+.wf-caret { width: 1.5px; height: 15px; background: var(--wf-ink); flex: 0 0 auto; }
+.wf-caret-glyph { margin-left: auto; color: var(--wf-ink-soft); flex: 0 0 auto; }
+.wf-select .wf-value { flex: 1 1 auto; }
+.wf-search { border-radius: 16px; }
+.wf-skin-clean .wf-search { border-radius: 4px; }
+
+.wf-textarea { position: relative; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); padding: 8px 10px; min-height: 68px; border-radius: var(--wf-radius); }
+.wf-resize { position: absolute; right: 2px; bottom: 0; color: var(--wf-ink-faint); font-size: 11px; }
+
+.wf-checkgroup { display: flex; flex-direction: column; gap: 7px; }
+.wf-checkline { display: flex; align-items: center; gap: 8px; }
+.wf-checkbox { width: 15px; height: 15px; border: var(--wf-bw) solid var(--wf-line); display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; flex: 0 0 auto; }
+.wf-checkbox.wf-checked { background: var(--wf-fill); }
+.wf-radio { width: 15px; height: 15px; border: var(--wf-bw) solid var(--wf-line); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.wf-radio-in { width: 7px; height: 7px; border-radius: 50%; background: var(--wf-line); }
+
+.wf-switch { width: 34px; height: 18px; border: var(--wf-bw) solid var(--wf-line); border-radius: 10px; display: flex; align-items: center; padding: 1.5px; flex: 0 0 auto; }
+.wf-switch .wf-knob { width: 13px; height: 13px; border-radius: 50%; background: var(--wf-line-soft); }
+.wf-switch.wf-checked { background: var(--wf-fill); justify-content: flex-end; }
+.wf-switch.wf-checked .wf-knob { background: var(--wf-line); }
+
+.wf-track { position: relative; height: 5px; background: var(--wf-fill); border: 1px solid var(--wf-line-soft); border-radius: 4px; margin: 9px 0; }
+.wf-track-fill { height: 100%; background: var(--wf-line-soft); }
+.wf-knob-round { position: absolute; top: 50%; width: 15px; height: 15px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); transform: translate(-50%, -50%); }
+
+.wf-dropzone { border: 2px dashed var(--wf-line-soft); padding: 18px; text-align: center; color: var(--wf-ink-soft); display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.wf-dz-glyph { font-size: 20px; color: var(--wf-ink-faint); }
+
+.wf-stepper { display: inline-flex; border: var(--wf-bw) solid var(--wf-line); }
+.wf-step-btn { width: 28px; height: 30px; display: flex; align-items: center; justify-content: center; background: var(--wf-fill); color: var(--wf-ink-soft); }
+.wf-step-val { min-width: 40px; height: 30px; display: flex; align-items: center; justify-content: center; border-left: var(--wf-bw) solid var(--wf-line); border-right: var(--wf-bw) solid var(--wf-line); }
+
+/* ---------- Actions ---------- */
+
+.wf-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); font-weight: 600; border-radius: var(--wf-radius); white-space: nowrap; min-height: 32px; }
+.wf-btn.wf-m-primary { background: var(--wf-accent); color: var(--wf-accent-ink); }
+.wf-btn.wf-m-danger { border-color: var(--wf-danger); color: var(--wf-danger); background: transparent; }
+.wf-btn.wf-m-ghost, .wf-btn.wf-m-secondary { background: transparent; }
+.wf-btn.wf-m-disabled, .wf-m-disabled { opacity: 0.4; }
+.wf-btn.wf-m-fill { width: 100%; }
+.wf-btn.wf-m-small { padding: 4px 10px; min-height: 24px; font-size: 11.5px; }
+.wf-btn.wf-m-large { padding: 12px 22px; min-height: 42px; font-size: 15px; }
+.wf-btngroup { display: inline-flex; }
+.wf-btngroup .wf-seg { border-radius: 0; margin-left: calc(var(--wf-bw) * -1); background: var(--wf-paper); font-weight: 500; }
+.wf-btngroup .wf-seg:first-child { margin-left: 0; }
+.wf-btngroup .wf-seg.wf-active { background: var(--wf-fill); font-weight: 700; }
+
+.wf-link { color: var(--wf-ink); text-decoration: underline; text-underline-offset: 2px; }
+.wf-icon { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--wf-ink-soft); }
+.wf-fab { width: 46px; height: 46px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-accent); color: var(--wf-accent-ink); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-left: auto; }
+
+/* ---------- Display ---------- */
+
+.wf-heading { font-weight: 700; color: var(--wf-ink); }
+.wf-h1 { font-size: 21px; }
+.wf-h2 { font-size: 17px; }
+.wf-h3 { font-size: 14.5px; }
+.wf-text { color: var(--wf-ink-soft); }
+.wf-greek { color: var(--wf-ink-faint); }
+.wf-m-bold { font-weight: 700; color: var(--wf-ink); }
+.wf-m-muted { color: var(--wf-ink-faint); }
+.wf-m-small { font-size: 11.5px; }
+.wf-m-large { font-size: 16px; }
+.wf-m-center { text-align: center; }
+.wf-m-right { text-align: right; }
+
+.wf-img { position: relative; border: var(--wf-bw) solid var(--wf-line-soft); background: var(--wf-fill-soft); min-height: 64px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+/* the classic crossed box that says "picture goes here" */
+.wf-img-x { position: absolute; inset: 0; background:
+  linear-gradient(to top right, transparent calc(50% - 0.6px), var(--wf-line-soft) 50%, transparent calc(50% + 0.6px)),
+  linear-gradient(to bottom right, transparent calc(50% - 0.6px), var(--wf-line-soft) 50%, transparent calc(50% + 0.6px));
+}
+.wf-img-label { position: relative; font-size: 10.5px; color: var(--wf-ink-soft); background: var(--wf-paper); padding: 1px 6px; margin-bottom: 6px; }
+
+.wf-avatars { display: flex; }
+.wf-avatar { width: 30px; height: 30px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--wf-ink-soft); margin-left: -7px; }
+.wf-avatar:first-child { margin-left: 0; }
+.wf-avatar-more { background: var(--wf-paper); }
+
+.wf-list { border: var(--wf-bw) solid var(--wf-line); }
+.wf-list-item { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-bottom: 1px solid var(--wf-line-soft); }
+.wf-list-item:last-child { border-bottom: none; }
+.wf-list-item.wf-selected { background: var(--wf-fill); font-weight: 600; box-shadow: inset 3px 0 0 var(--wf-line); }
+.wf-list-sep { height: 9px; background: var(--wf-fill); border-top: 1px solid var(--wf-line-soft); border-bottom: 1px solid var(--wf-line-soft); }
+
+.wf-table { border: var(--wf-bw) solid var(--wf-line); overflow: hidden; }
+.wf-tr { display: flex; border-bottom: 1px solid var(--wf-line-soft); }
+.wf-tr:last-child { border-bottom: none; }
+.wf-td { flex: 1 1 0; padding: 7px 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--wf-line-soft); }
+.wf-td:last-child { border-right: none; }
+.wf-th { background: var(--wf-fill); font-weight: 700; border-bottom: var(--wf-bw) solid var(--wf-line); }
+.wf-tr.wf-selected { background: var(--wf-fill); box-shadow: inset 3px 0 0 var(--wf-line); }
+.wf-tr-sep { height: 9px; background: var(--wf-fill); border-bottom: 1px solid var(--wf-line-soft); }
+
+.wf-kv { display: flex; flex-direction: column; }
+.wf-kv-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--wf-line-soft); }
+.wf-kv-row:last-child { border-bottom: none; }
+.wf-kv-k { flex: 0 0 40%; color: var(--wf-ink-soft); font-weight: 600; font-size: 12px; }
+.wf-kv-v { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.wf-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.wf-badge { border: var(--wf-bw) solid var(--wf-line-soft); padding: 2px 9px; border-radius: 11px; font-size: 11.5px; color: var(--wf-ink-soft); }
+.wf-badge.wf-active { border-color: var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); font-weight: 700; }
+
+.wf-alert { display: flex; gap: 9px; align-items: center; border: var(--wf-bw) solid var(--wf-line); border-left-width: 4px; padding: 9px 12px; background: var(--wf-fill-soft); }
+.wf-alert.wf-m-error { border-left-color: var(--wf-danger); }
+.wf-alert-glyph { flex: 0 0 auto; color: var(--wf-ink-soft); }
+
+.wf-progress { height: 9px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); overflow: hidden; }
+.wf-progress-fill { height: 100%; background: var(--wf-line-soft); }
+.wf-progress-pct { font-size: 11px; color: var(--wf-ink-soft); text-align: right; }
+
+.wf-chart-title { font-weight: 700; font-size: 12.5px; margin-bottom: 6px; }
+.wf-chart { display: flex; gap: 10px; align-items: flex-end; height: 120px; border-bottom: var(--wf-bw) solid var(--wf-line); border-left: var(--wf-bw) solid var(--wf-line); padding: 0 8px; }
+.wf-chart-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+.wf-chart-bar { width: 74%; background: var(--wf-fill); border: var(--wf-bw) solid var(--wf-line); border-bottom: none; }
+.wf-chart-label { font-size: 10px; color: var(--wf-ink-soft); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wf-chart-empty { color: var(--wf-ink-faint); font-size: 11px; align-self: center; }
+
+.wf-stat { border: var(--wf-bw) solid var(--wf-line); padding: 11px 13px; display: flex; flex-direction: column; gap: 2px; background: var(--wf-fill-soft); }
+.wf-stat-num { font-size: 25px; font-weight: 700; line-height: 1.1; }
+.wf-stat-label { font-size: 11.5px; color: var(--wf-ink-soft); }
+
+.wf-empty { border: 2px dashed var(--wf-line-soft); padding: 26px 18px; display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center; }
+.wf-empty-glyph { font-size: 28px; color: var(--wf-ink-faint); }
+.wf-empty-title { color: var(--wf-ink-soft); font-weight: 600; }
+
+.wf-spinner-box { display: flex; align-items: center; gap: 9px; color: var(--wf-ink-soft); }
+.wf-spinner { font-size: 17px; animation: wf-spin 1.6s linear infinite; }
+@keyframes wf-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .wf-spinner { animation: none; } }
+
+/* ---------- Annotation layer ---------- */
+
+.wf-note { background: var(--wf-note); border: 1px solid var(--wf-note-line); padding: 11px 13px; box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.09); color: var(--wf-ink); }
+.wf-note-line + .wf-note-line { margin-top: 3px; }
+.wf-callout { display: flex; align-items: center; gap: 9px; }
+.wf-callout-num { width: 21px; height: 21px; border-radius: 50%; background: var(--wf-danger); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: 0 0 auto; }
+.wf-divline { flex: 1 1 auto; height: 1px; background: var(--wf-line-soft); }
+.wf-divider-label { display: flex; align-items: center; gap: 10px; color: var(--wf-ink-faint); font-size: 11.5px; }
+.wf-spacer { width: 100%; }
+.wf-error { color: var(--wf-danger); font-family: var(--font-monospace, monospace); font-size: 11.5px; }
+
+/* ---------- Palette panel — a visual UI library ---------- */
+
+.wf-palette { padding: 10px 12px 26px; }
+.wf-palette-search { width: 100%; margin-bottom: 10px; }
+.wf-palette-hint {
+  font-size: 11.5px; line-height: 1.45; color: var(--text-muted);
+  background: var(--background-secondary); border-radius: 5px;
+  padding: 7px 9px; margin-bottom: 4px;
+}
+.wf-palette-hint-2 { color: var(--text-faint); margin-top: 3px; }
+.wf-palette-grouphead {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); margin: 18px 0 8px; font-weight: 700;
+}
+.wf-palette-fbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.wf-palette-chip {
+  border: 1px solid var(--background-modifier-border); border-radius: 12px;
+  padding: 3px 11px; font-size: 11.5px; cursor: pointer;
+}
+.wf-palette-chip:hover { background: var(--background-modifier-hover); border-color: var(--interactive-accent); }
+
+.wf-palette-cards { display: flex; flex-direction: column; gap: 8px; }
+
+/* Each card is a real rendering of the widget, scaled down. Clicking it
+   inserts the same thing you are looking at. */
+.wf-card-btn {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px; overflow: hidden; cursor: pointer;
+  background: var(--background-primary);
+  transition: border-color 90ms ease, box-shadow 90ms ease;
+}
+.wf-card-btn:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+.wf-card-btn-head {
+  display: flex; align-items: baseline; gap: 7px;
+  padding: 5px 9px; border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.wf-card-btn-name { font-size: 11.5px; font-weight: 600; flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-card-btn-badge {
+  font-family: var(--font-monospace, monospace); font-size: 10px;
+  color: var(--text-faint); flex: 0 0 auto;
+}
+
+.wf-thumb { position: relative; overflow: hidden; background: var(--background-primary);
+  display: flex; justify-content: center; }
+.wf-thumb-stage { pointer-events: none; }
+/* A single-widget thumbnail can be taller than its cap; fade the cut so it
+   reads as "there is more" rather than as a broken render. */
+.wf-card-btn.wf-may-clip .wf-thumb::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22px;
+  background: linear-gradient(transparent, var(--background-primary));
+  pointer-events: none;
+}
+/* thumbnails are decoration, not documents — keep their padding tight */
+.wf-thumb-stage .wf-root { padding: 10px; border-radius: 0; }
+
+.wf-palette-none { color: var(--text-faint); font-size: 12px; padding: 10px 0; }
+
+.wf-qa-row { display: flex; align-items: baseline; gap: 10px; }
+.wf-qa-name { font-family: var(--font-monospace, monospace); font-weight: 600; min-width: 92px; }
+.wf-qa-label { flex: 1 1 auto; }
+.wf-qa-group { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
+
+/* Canvas text nodes clip their content; let a wireframe use the whole node. */
+.canvas-node-content .wf-host { height: 100%; }
+.canvas-node-content .wf-root { height: 100%; overflow: auto; }
+
+/* Inside a Canvas node the wireframe must be pointer-transparent, or the
+   rendered widgets eat the double-click that Canvas uses to enter edit mode
+   and the drag that moves the node. The node itself still gets every event.
+   Only scoped to Canvas: in an ordinary note you still want to select text. */
+.canvas-node-content .wf-host,
+.canvas-node-content .wf-root,
+.canvas-node-content .wf-root * { pointer-events: none; }
+.canvas-node-content .wf-root { user-select: none; -webkit-user-select: none; }
+
+/* ==================================================================
+   Icons
+   ================================================================== */
+
+.wf-ico { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; line-height: 0; }
+.wf-ico svg { display: block; width: 100%; height: 100%; }
+.wf-ico-missing { border: 1px dashed var(--wf-danger); border-radius: 2px; }
+.wf-skin-sketch .wf-ico svg { stroke-width: 1.9; }
+.wf-skin-wire .wf-ico svg { stroke-width: 1.5; }
+
+.wf-icon { display: flex; align-items: center; justify-content: center; color: var(--wf-ink); }
+.wf-icon.wf-m-large { transform: scale(1.4); transform-origin: left center; }
+.wf-iconrow { display: flex; flex-wrap: wrap; gap: 4px; }
+.wf-iconrow-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 7px 8px; border: var(--wf-bw) solid transparent; min-width: 56px; color: var(--wf-ink-soft);
+}
+.wf-iconrow-cell.wf-active { border-color: var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); }
+.wf-iconrow-label { font-size: 9.5px; color: var(--wf-ink-faint); text-align: center; }
+
+/* ==================================================================
+   Controls added to match the Balsamiq library
+   ================================================================== */
+
+/* accordion */
+.wf-accordion { border: var(--wf-bw) solid var(--wf-line); }
+.wf-acc-sec { border-bottom: 1px solid var(--wf-line-soft); }
+.wf-acc-sec:last-child { border-bottom: none; }
+.wf-acc-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px; background: var(--wf-fill-soft); font-weight: 600; }
+.wf-acc-sec.wf-open .wf-acc-head { background: var(--wf-fill); }
+.wf-acc-body { padding: 10px 12px 13px 30px; color: var(--wf-ink-soft); }
+
+/* vertical tabs */
+.wf-vtabs { display: flex; flex-direction: column; border-right: var(--wf-bw) solid var(--wf-line); }
+.wf-vtab { padding: 8px 14px; color: var(--wf-ink-soft); border: var(--wf-bw) solid transparent; border-right: none; white-space: nowrap; }
+/* The border-swap trick used for horizontal tabs leaves an artifact when the
+   strip is vertical; an inset accent bar reads the same and stays clean. */
+.wf-vtab.wf-active {
+  color: var(--wf-ink); font-weight: 700; background: var(--wf-fill);
+  box-shadow: inset 3px 0 0 var(--wf-line);
+}
+
+/* tree */
+.wf-tree { border: var(--wf-bw) solid var(--wf-line); padding: 5px 0; }
+.wf-tree-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; color: var(--wf-ink-soft); }
+.wf-tree-row.wf-selected { background: var(--wf-fill); color: var(--wf-ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--wf-line); }
+
+/* open menu */
+.wf-menu { border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); box-shadow: 3px 3px 0 rgba(0,0,0,.11); padding: 4px 0; }
+.wf-menu-row { display: flex; align-items: center; gap: 8px; padding: 6px 11px 6px 6px; }
+.wf-menu-tick { width: 15px; display: flex; justify-content: center; flex: 0 0 auto; }
+.wf-menu-label { flex: 1 1 auto; }
+.wf-menu-row.wf-active { background: var(--wf-fill); font-weight: 600; }
+.wf-menu-sep { height: 1px; background: var(--wf-line-soft); margin: 4px 0; }
+
+/* menu bar */
+.wf-menubar { display: flex; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill-soft); }
+.wf-menubar-item { padding: 6px 13px; color: var(--wf-ink-soft); }
+.wf-menubar-item.wf-active { background: var(--wf-fill); color: var(--wf-ink); font-weight: 600; }
+
+/* scrollbar */
+.wf-sbar { position: relative; width: 12px; min-height: 90px; height: 100%; background: var(--wf-fill-soft); border: 1px solid var(--wf-line-soft); }
+.wf-sbar-thumb { position: absolute; left: 1px; right: 1px; height: 34%; background: var(--wf-line-soft); }
+.wf-w-scrollbar { align-self: stretch; }
+
+/* colour picker */
+.wf-swatches { display: flex; flex-wrap: wrap; gap: 4px; }
+.wf-swatch { width: 24px; height: 24px; border: var(--wf-bw) solid var(--wf-line-soft); }
+.wf-swatch.wf-active { outline: 2px solid var(--wf-line); outline-offset: 1px; }
+
+/* calendar */
+.wf-cal { border: var(--wf-bw) solid var(--wf-line); }
+.wf-cal-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: var(--wf-fill); border-bottom: var(--wf-bw) solid var(--wf-line); }
+.wf-cal-title { font-weight: 700; }
+.wf-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.wf-cal-dow { font-size: 10px; color: var(--wf-ink-faint); font-weight: 700; }
+.wf-cal-dow > div, .wf-cal-day { text-align: center; padding: 5px 0; font-size: 11.5px; }
+.wf-cal-day { border-top: 1px solid var(--wf-line-soft); color: var(--wf-ink-soft); }
+.wf-cal-day.wf-muted { color: transparent; }
+.wf-cal-day.wf-active { background: var(--wf-accent); color: var(--wf-accent-ink); font-weight: 700; }
+
+/* rating */
+.wf-rating { display: flex; gap: 3px; color: var(--wf-line-soft); }
+.wf-star { display: flex; }
+.wf-star.wf-filled { color: var(--wf-ink); }
+.wf-star.wf-filled svg { fill: currentColor; }
+
+/* fieldset + well */
+.wf-fieldset { border: var(--wf-bw) solid var(--wf-line-soft); padding: 14px 12px 12px; position: relative; margin-top: 8px; }
+.wf-fieldset-legend {
+  position: absolute; top: -9px; left: 10px; background: var(--wf-paper);
+  padding: 0 6px; font-size: 11.5px; font-weight: 700; color: var(--wf-ink-soft);
+}
+.wf-well { background: var(--wf-fill-soft); border: var(--wf-bw) solid var(--wf-line-soft); box-shadow: inset 0 2px 4px rgba(0,0,0,.07); padding: 12px; }
+
+/* split panes */
+.wf-split { display: flex; border: var(--wf-bw) solid var(--wf-line); min-height: 90px; }
+.wf-split-pane { flex: 1 1 0; padding: 10px; min-width: 0; }
+.wf-split-handle { width: 9px; flex: 0 0 auto; background: var(--wf-fill); border-left: 1px solid var(--wf-line-soft); border-right: 1px solid var(--wf-line-soft); display: flex; align-items: center; justify-content: center; }
+.wf-split-grip { width: 2px; height: 26px; background: var(--wf-line-soft); box-shadow: 3px 0 0 var(--wf-line-soft), -3px 0 0 var(--wf-line-soft); }
+
+/* pie */
+.wf-pie-wrap { display: flex; gap: 14px; align-items: center; }
+.wf-pie { flex: 0 0 auto; width: 96px; height: 96px; color: var(--wf-line); }
+.wf-pie svg { width: 100%; height: 100%; }
+.wf-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--wf-ink-soft); }
+.wf-legend-row { display: flex; align-items: center; gap: 7px; }
+.wf-legend-key { width: 11px; height: 11px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); flex: 0 0 auto; }
+
+/* line chart */
+.wf-linechart { height: 92px; border-bottom: var(--wf-bw) solid var(--wf-line); border-left: var(--wf-bw) solid var(--wf-line); color: var(--wf-ink); }
+.wf-linechart svg { width: 100%; height: 100%; }
+.wf-linechart-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--wf-ink-faint); padding: 4px 2px 0; }
+
+/* tag cloud */
+.wf-tagcloud { display: flex; flex-wrap: wrap; gap: 4px 11px; align-items: baseline; color: var(--wf-ink-soft); }
+.wf-cloud-tag.wf-active { color: var(--wf-ink); font-weight: 700; }
+
+/* video */
+.wf-video { border: var(--wf-bw) solid var(--wf-line); }
+.wf-video-stage { position: relative; aspect-ratio: 16 / 9; min-height: 90px; background: var(--wf-fill-soft); display: flex; align-items: center; justify-content: center; }
+.wf-video-play { position: relative; width: 46px; height: 46px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); display: flex; align-items: center; justify-content: center; }
+.wf-video-bar { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-top: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); color: var(--wf-ink-soft); }
+.wf-video-track { flex: 1 1 auto; height: 4px; background: var(--wf-paper); border: 1px solid var(--wf-line-soft); }
+.wf-video-fill { height: 100%; background: var(--wf-line-soft); }
+.wf-video-time { font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.wf-video-cap { padding: 7px 10px; font-size: 11.5px; color: var(--wf-ink-soft); border-top: 1px solid var(--wf-line-soft); }
+
+/* map */
+.wf-map { position: relative; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill-soft); min-height: 120px; overflow: hidden; }
+.wf-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--wf-line-soft); }
+.wf-map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -85%); color: var(--wf-ink); }
+.wf-map-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 9px; font-size: 11px; background: var(--wf-paper); border-top: 1px solid var(--wf-line-soft); color: var(--wf-ink-soft); }
+
+/* shapes */
+/* ---------- primitives: a box, a circle, a triangle ---------- *
+   Each fills its element and centres whatever text it holds, so a labelled
+   rectangle is one element and resizing it keeps the label centred. */
+.wf-prim {
+  width: 100%; height: 100%; min-height: 40px; box-sizing: border-box;
+  border: var(--wf-bw) solid var(--wf-line);
+  background: transparent; color: var(--wf-ink);
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px 10px;
+}
+.wf-prim-text { text-align: center; overflow-wrap: anywhere; line-height: 1.35; }
+.wf-prim-circle { border-radius: 50%; }
+/* a triangle cannot be a border, so it is a clipped block */
+.wf-prim-triangle {
+  border: none; background: var(--wf-line);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+.wf-prim.wf-m-fill { background: var(--wf-fill); }
+.wf-prim-triangle.wf-m-fill { background: var(--wf-line); }
+.wf-prim.wf-m-dashed { border-style: dashed; }
+.wf-prim.wf-m-muted { border-color: var(--wf-line-soft); color: var(--wf-ink-soft); }
+.wf-prim.wf-m-bold .wf-prim-text { font-weight: 700; }
+.wf-prim.wf-m-small .wf-prim-text { font-size: 11px; }
+.wf-prim.wf-m-large .wf-prim-text { font-size: 17px; }
+/* the sketch skin makes every corner slightly wrong, and a "circle" should be
+   a hand-drawn oval rather than a compass-perfect one */
+.wf-skin-sketch .wf-prim-rect { border-radius: 4px 10px 5px 9px / 9px 4px 10px 5px; }
+.wf-skin-sketch .wf-prim-circle { border-radius: 49% 51% 52% 48% / 51% 48% 52% 49%; }
+
+/* sitemap */
+.wf-sitemap { display: flex; flex-direction: column; align-items: center; }
+.wf-sitemap-root, .wf-sitemap-box { border: var(--wf-bw) solid var(--wf-line); padding: 6px 12px; background: var(--wf-fill-soft); font-size: 12px; white-space: nowrap; }
+.wf-sitemap-box.wf-active { background: var(--wf-fill); font-weight: 700; }
+.wf-sitemap-stem { width: var(--wf-bw); height: 14px; background: var(--wf-line); }
+.wf-sitemap-row { display: flex; gap: 10px; align-items: flex-start; border-top: var(--wf-bw) solid var(--wf-line); padding-top: 0; }
+.wf-sitemap-cell { display: flex; flex-direction: column; align-items: center; }
+.wf-sitemap-tick { width: var(--wf-bw); height: 12px; background: var(--wf-line); }
+
+/* tooltip + comment bubble */
+.wf-tooltip { position: relative; display: inline-block; }
+.wf-tooltip-body { background: var(--wf-ink); color: var(--wf-paper); padding: 6px 11px; border-radius: 3px; font-size: 12px; }
+.wf-tooltip-tail { width: 0; height: 0; margin-left: 14px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid var(--wf-ink); }
+.wf-bubble { position: relative; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-note); padding: 9px 12px; }
+.wf-bubble-who { font-weight: 700; font-size: 11.5px; margin-bottom: 2px; }
+.wf-bubble-tail { position: absolute; left: 18px; bottom: -9px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 0 solid transparent; border-top: 9px solid var(--wf-line); }
+
+/* braces, arrows, redlines */
+.wf-brace { color: var(--wf-ink-soft); }
+.wf-brace-svg { width: 100%; height: 12px; }
+.wf-brace-label { text-align: center; font-size: 11.5px; padding-top: 3px; }
+.wf-vbrace { display: flex; gap: 8px; align-items: center; min-height: 70px; }
+.wf-vbrace-rail { width: 12px; align-self: stretch; }
+.wf-vbrace .wf-brace-svg { width: 12px; height: 100%; }
+.wf-arrow { color: var(--wf-ink-soft); }
+.wf-arrow-rail { height: 10px; }
+.wf-arrow-svg { width: 100%; height: 10px; }
+.wf-arrow-label { font-size: 11.5px; text-align: center; padding-top: 2px; }
+.wf-measure { display: flex; align-items: center; gap: 0; color: var(--wf-danger); }
+.wf-measure-cap { width: 1.5px; height: 15px; background: var(--wf-danger); flex: 0 0 auto; }
+.wf-measure-rail { flex: 1 1 auto; position: relative; display: flex; align-items: center; justify-content: center; }
+.wf-measure-line { position: absolute; left: 0; right: 0; height: 1.5px; background: var(--wf-danger); }
+.wf-measure-val { position: relative; background: var(--wf-paper); padding: 0 6px; font-size: 11px; font-weight: 700; }
+
+/* icon browser in the palette */
+.wf-icongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 3px; }
+.wf-icongrid-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 7px 3px 5px; border: 1px solid transparent; border-radius: 5px;
+  cursor: pointer; color: var(--text-normal);
+}
+.wf-icongrid-cell:hover { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
+.wf-icongrid-name { font-size: 8.5px; color: var(--text-faint); text-align: center; line-height: 1.15; word-break: break-all; }
+.wf-palette-foot { font-size: 10.5px; color: var(--text-faint); margin-top: 9px; font-family: var(--font-monospace, monospace); }
+.wf-icopick { width: 20px; display: flex; justify-content: center; flex: 0 0 auto; }
+
+/* ==================================================================
+   Drag and drop
+   ================================================================== */
+
+.wf-card-btn[draggable="true"],
+.wf-icongrid-cell[draggable="true"],
+.wf-palette-chip[draggable="true"] { cursor: grab; }
+.wf-card-btn[draggable="true"]:active,
+.wf-icongrid-cell[draggable="true"]:active,
+.wf-palette-chip[draggable="true"]:active { cursor: grabbing; }
+
+/* the canvas accepts the drop */
+.canvas-wrapper.wf-drop-armed { outline: 2px dashed var(--interactive-accent); outline-offset: -2px; }
+
+/* the wireframe a drop would be appended into */
+.canvas-node.wf-drop-target > .canvas-node-container,
+.canvas-node.wf-drop-target { box-shadow: 0 0 0 3px var(--interactive-accent); border-radius: 4px; }
+
+/* palette: shortcut to the full-width catalog note */
+.wf-palette-catalog {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--background-modifier-border); border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 8px; cursor: pointer; font-size: 12.5px;
+  font-weight: 600; color: var(--text-normal);
+}
+.wf-palette-catalog:hover { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
+
+/* ==================================================================
+   THE EDITOR
+   Balsamiq layout: UI Library left, canvas centre, inspector right.
+   ================================================================== */
+
+.wire-host { padding: 0 !important; overflow: hidden; }
+.wire-app { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wire-body { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
+
+/* ---- toolbar ---- */
+.wire-toolbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+  padding: 6px 10px; border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.wire-tb-group { display: flex; align-items: center; gap: 2px; }
+.wire-tb-group.wire-dim { opacity: .35; pointer-events: none; }
+.wire-tb-sep { width: 1px; height: 20px; background: var(--background-modifier-border); margin: 0 6px; }
+.wire-tb-btn {
+  display: flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 5px;
+  cursor: pointer; color: var(--text-muted); font-size: 12px;
+}
+.wire-tb-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wire-tb-btn.wire-on { background: var(--background-modifier-hover); color: var(--text-normal); }
+.wire-tb-zoom {
+  min-width: 46px; text-align: center; font-size: 11.5px; cursor: pointer;
+  color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+.wire-tb-spacer { flex: 1 1 auto; }
+.wire-tb-count { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+/* ---- UI Library ---- */
+/* The palette floats over the canvas rather than docking beside it - Balsamiq's
+   flyout model. Collapsed it is a short bar of tabs and a search box; the stage
+   always gets the full width underneath, which is the point. */
+.wire-palette {
+  position: absolute; left: 0; top: 0; width: 232px; max-height: 100%;
+  display: flex; flex-direction: column; min-height: 0; z-index: 20;
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  box-shadow: 2px 2px 14px rgba(0, 0, 0, .10);
+}
+.wire-pal-head { padding: 9px 11px 5px; }
+.wire-pal-title {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-faint);
+}
+.wire-pal-search { margin: 0 10px 8px; }
+.wire-pal-list { flex: 1 1 auto; overflow-y: auto; padding: 0 10px 20px; }
+.wire-pal-group {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); margin: 12px 0 5px;
+}
+.wire-pal-cards { display: flex; flex-direction: column; gap: 5px; }
+.wire-pal-card {
+  border: 1px solid var(--background-modifier-border); border-radius: 5px;
+  overflow: hidden; cursor: grab; background: var(--background-primary);
+}
+.wire-pal-card:hover { border-color: var(--interactive-accent); }
+.wire-pal-card:active { cursor: grabbing; }
+.wire-pal-name {
+  font-size: 11px; padding: 4px 7px; color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wire-pal-thumb { max-height: 118px; overflow: hidden; display: flex; justify-content: center; }
+.wire-pal-stage { pointer-events: none; }
+.wire-pal-stage .wf-root { padding: 8px; border-radius: 0; }
+/* Presenting (job B2): everything that is not the wireframe gets out of the way.
+   The stage keeps its own background so a fullscreen board is not a hole. */
+.wire-host.wire-present .wire-toolbar,
+.wire-host.wire-present .wire-palette,
+.wire-host.wire-present .wire-inspector { display: none; }
+.wire-host.wire-present .wire-stage { background: var(--background-primary); }
+.wire-host.wire-present .wire-stage.wire-showgrid { background-image: none; }
+
+/* Locked board (job B7): the cursor and the handles say so before you try. */
+.wire-stage.wire-locked { cursor: grab; }
+.wire-stage.wire-locked .wire-handles,
+.wire-stage.wire-locked .wire-nubs { display: none; }
+.wire-stage.wire-locked .wire-el { cursor: grab; }
+
+/* A sidebar item with no named icon gets the glyph's indent back, so a
+   text-only nav list still lines up with an icon'd one above it. */
+.wf-sideitem.wf-noglyph { padding-left: 10px; }
+/* An empty transform label must not leave a gap where the type name goes. */
+.wire-tb-btn .wire-tb-label:empty { display: none; }
+
+/* Palette tabs: two libraries, so two tabs. The count on each tab is the
+   answer to "how many are there", which people ask before they search. */
+/* An element dropped at the very top-left would land under the floating
+   palette. The empty state is centred, so it is clear of it either way. */
+
+/* Collapsed (job: the canvas is what you came for). The palette keeps its tabs
+   and its search box - the two things you reach for - and hides the list until
+   you use one of them. */
+.wire-palette.wire-pal-shut { max-height: none; border-bottom-right-radius: 6px; }
+.wire-palette.wire-pal-shut .wire-pal-list { display: none; }
+.wire-palette:not(.wire-pal-shut) { height: 100%; }
+.wire-pal-hint {
+  font-size: 10.5px; color: var(--text-faint); padding: 0 11px 9px; line-height: 1.4;
+}
+
+.wire-pal-tabs {
+  display: flex; gap: 2px; padding: 8px 10px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.wire-pal-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px 7px; font-size: 12px; font-weight: 500;
+  color: var(--text-muted); cursor: pointer; user-select: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.wire-pal-tab:hover { color: var(--text-normal); }
+.wire-pal-tab.wire-on {
+  color: var(--text-normal); border-bottom-color: var(--interactive-accent);
+}
+.wire-pal-tab-count {
+  font-size: 10px; font-variant-numeric: tabular-nums;
+  padding: 1px 5px; border-radius: 8px;
+  background: var(--background-modifier-hover); color: var(--text-faint);
+}
+.wire-pal-tab.wire-on .wire-pal-tab-count { color: var(--text-muted); }
+
+/* Icon grid. Fixed cells so the names line up and the eye can sweep the grid. */
+.wire-pal-icons {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 4px; padding: 4px 0 10px;
+}
+.wire-pal-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 3px 6px; border-radius: 5px; cursor: pointer;
+  border: 1px solid transparent; min-width: 0;
+}
+.wire-pal-icon:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border);
+}
+.wire-pal-icon-art { color: var(--text-normal); line-height: 0; }
+.wire-pal-icon-name {
+  font-size: 9.5px; color: var(--text-faint); text-align: center;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wire-pal-icon:hover .wire-pal-icon-name { color: var(--text-muted); }
+
+.wire-pal-none { font-size: 12px; color: var(--text-faint); padding: 10px 0; line-height: 1.5; }
+.wire-pal-none-act {
+  margin-top: 6px; color: var(--text-accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.wire-pal-none-act:hover { color: var(--text-accent-hover); }
+
+/* ---- canvas ---- */
+.wire-stage {
+  flex: 1 1 auto; position: relative; overflow: hidden; min-width: 0;
+  background: var(--background-primary); outline: none; cursor: default;
+  --wire-grid: 8px;
+}
+.wire-stage.wire-showgrid {
+  background-image:
+    linear-gradient(var(--background-modifier-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--background-modifier-border) 1px, transparent 1px);
+  background-size: calc(var(--wire-grid) * 4) calc(var(--wire-grid) * 4);
+  opacity: 1;
+}
+.wire-stage.wire-grab { cursor: grab; }
+.wire-stage.wire-panning { cursor: grabbing; }
+.wire-stage.wire-drop { box-shadow: inset 0 0 0 2px var(--interactive-accent); }
+.wire-surface { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+.wire-el { position: absolute; box-sizing: border-box; z-index: 1; }
+.wire-el-inner { width: 100%; height: 100%; overflow: hidden; }
+/* the shared renderers fill the element box in the editor */
+.wire-el-inner .wf-root { padding: 0; height: 100%; border-radius: 0; background: transparent; }
+.wire-el-inner .wf-w { height: 100%; }
+.wire-el-inner .wf-root, .wire-el-inner .wf-root * { pointer-events: none; }
+
+.wire-el.wire-selected { outline: 1.5px solid var(--interactive-accent); outline-offset: 1px; }
+.wire-handles { position: absolute; inset: 0; pointer-events: none; }
+.wire-handle {
+  position: absolute; width: 9px; height: 9px; background: var(--background-primary);
+  border: 1.5px solid var(--interactive-accent); border-radius: 2px;
+  pointer-events: auto; box-sizing: border-box;
+}
+.wire-h-nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.wire-h-n  { left: calc(50% - 4.5px); top: -5px; cursor: ns-resize; }
+.wire-h-ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.wire-h-e  { right: -5px; top: calc(50% - 4.5px); cursor: ew-resize; }
+.wire-h-se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.wire-h-s  { left: calc(50% - 4.5px); bottom: -5px; cursor: ns-resize; }
+.wire-h-sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.wire-h-w  { left: -5px; top: calc(50% - 4.5px); cursor: ew-resize; }
+
+.wire-marquee {
+  position: absolute; border: 1px solid var(--interactive-accent);
+  background: rgba(120, 120, 255, .09); pointer-events: none;
+}
+
+/* ---- inline text editor ---- */
+.wire-edit {
+  position: absolute; z-index: 40; min-width: 180px; max-width: 520px;
+  background: var(--background-primary); border: 1.5px solid var(--interactive-accent);
+  border-radius: 6px; box-shadow: 0 8px 26px rgba(0, 0, 0, .3); padding: 7px 8px 6px;
+  /* the arrow-label box is positioned by its centre, so the declared width has
+     to be the outer width or the centring is off by the padding */
+  box-sizing: border-box;
+}
+.wire-edit-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); margin-bottom: 4px; font-weight: 700;
+}
+.wire-edit-field {
+  width: 100%; resize: vertical; border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; background: var(--background-primary); color: var(--text-normal);
+  font-family: var(--font-monospace, monospace); font-size: 12.5px; line-height: 1.5;
+  padding: 5px 7px; box-sizing: border-box;
+}
+.wire-edit:not(.wire-edit-rows) .wire-edit-field { resize: none; overflow: hidden; white-space: nowrap; }
+.wire-edit-hint { font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+/* The arrow's label box sits on the curve, so it needs to float above the
+   drawing rather than align to an element's top-left like the others. */
+.wire-edit-link { z-index: 40; }
+.wire-edit-link .wire-edit-field { white-space: nowrap; text-align: center; }
+
+/* ---- inspector ---- */
+.wire-inspector {
+  flex: 0 0 236px; width: 236px; overflow-y: auto; padding: 12px 12px 30px;
+  border-left: 1px solid var(--background-modifier-border); background: var(--background-secondary);
+}
+/* Nothing selected: the panel gives its width back to the canvas rather than
+   sitting there holding a sentence. display:none rather than a zero width, so
+   nothing inside it can still be tabbed to or read out. */
+.wire-inspector.wire-hidden { display: none; }
+.wire-ins-headrow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wire-ins-close {
+  cursor: pointer; color: var(--text-faint); line-height: 0; padding: 2px;
+  border-radius: 4px; flex: 0 0 auto;
+}
+.wire-ins-close:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wire-ins-head { font-size: 14px; font-weight: 700; }
+.wire-ins-sub {
+  font-family: var(--font-monospace, monospace); font-size: 11px;
+  color: var(--text-faint); margin-bottom: 12px;
+}
+.wire-ins-empty { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.wire-ins-tips { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; }
+.wire-ins-tip { font-size: 11.5px; color: var(--text-muted); display: flex; gap: 7px; }
+.wire-ins-key {
+  font-family: var(--font-monospace, monospace); font-size: 10.5px; color: var(--text-normal);
+  background: var(--background-modifier-hover); border-radius: 3px; padding: 1px 5px;
+  flex: 0 0 auto; white-space: nowrap;
+}
+.wire-ins-field { margin-bottom: 12px; }
+.wire-ins-label { font-size: 10.5px; color: var(--text-faint); margin-bottom: 4px; line-height: 1.35; }
+.wire-inspector input[type="text"], .wire-inspector textarea { width: 100%; box-sizing: border-box; }
+.wire-inspector textarea {
+  font-family: var(--font-monospace, monospace); font-size: 12px;
+  line-height: 1.5; resize: vertical;
+}
+.wire-ins-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.wire-ins-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border); color: var(--text-muted);
+}
+.wire-ins-chip.wire-on {
+  background: var(--interactive-accent); border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.wire-ins-geom { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.wire-ins-geomcell { display: flex; align-items: center; gap: 5px; }
+.wire-ins-geomkey { font-size: 10px; color: var(--text-faint); width: 12px; }
+.wire-ins-geomcell input { width: 100%; box-sizing: border-box; }
+.wire-ins-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 14px; }
+.wire-ins-btn {
+  font-size: 11.5px; padding: 4px 9px; border-radius: 5px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border); color: var(--text-normal);
+}
+.wire-ins-btn:hover { background: var(--background-modifier-hover); }
+.wire-ins-btn.wire-danger { color: var(--text-error, #c0392b); }
+.wire-ins-alignrow { display: flex; flex-wrap: wrap; gap: 4px; }
+.wire-ins-align {
+  width: 30px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--background-modifier-border); border-radius: 5px; cursor: pointer;
+  font-size: 14px; color: var(--text-muted);
+}
+.wire-ins-align:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
+@media (max-width: 900px) {
+  .wire-palette { flex-basis: 180px; width: 180px; }
+  .wire-inspector { flex-basis: 190px; width: 190px; }
+}
+
+/* ---- connecting arrows ---- */
+.wire-link { position: absolute; color: var(--text-muted); z-index: 0; }
+.wire-link svg { display: block; overflow: visible; }
+.wire-link .wire-link-hit { pointer-events: stroke; cursor: pointer; }
+.wire-link .wire-link-line, .wire-link .wire-link-head { pointer-events: none; }
+.wire-link:hover { color: var(--text-normal); }
+.wire-link-sel { color: var(--interactive-accent); z-index: 2; }
+.wire-link-sel .wire-link-line { stroke-width: 2.4; }
+/* Canvas-style label: the text sits on the canvas with just enough background to
+   punch through the curve. No chip outline. */
+.wire-link-label {
+  position: absolute; transform: translate(-50%, -50%);
+  background: var(--background-primary); padding: 1px 7px;
+  font-size: 12px; color: var(--text-muted);
+  white-space: nowrap; pointer-events: none; border-radius: 3px;
+}
+.wire-link-sel .wire-link-label { color: var(--interactive-accent); }
+
+.wire-stage.wire-connecting { cursor: crosshair; }
+.wire-stage.wire-connecting .wire-el { cursor: crosshair; }
+.wire-preview {
+  position: absolute; inset: 0; pointer-events: none; z-index: 30;
+  color: var(--text-faint);
+}
+.wire-preview.wire-preview-ok { color: var(--interactive-accent); }
+.wire-el.wire-connect-target { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
+
+/* A single control should fill the box you gave it, the way it does in Balsamiq.
+   Restricted to :only-child on purpose — widgets like the browser window build
+   their own chrome as several siblings and size them themselves; stretching all
+   of those equally gave the tab strip a third of the frame. */
+.wire-el-inner .wf-w { display: flex; flex-direction: column; }
+.wire-el-inner .wf-w > :only-child { flex: 1 1 auto; min-width: 0; }
+
+/* modal used for naming a master */
+.wf-modal-desc { color: var(--text-muted); font-size: 12.5px; margin: 0 0 12px; }
+.wf-modal-input { width: 100%; box-sizing: border-box; }
+.wf-modal-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* ---- empty wireframe ---- */
+.wire-empty {
+  position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  text-align: center; max-width: 380px; pointer-events: none;
+}
+.wire-empty-icon { color: var(--text-faint); }
+.wire-empty-title { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+.wire-empty-body { font-size: 12.5px; color: var(--text-faint); line-height: 1.5; }
+.wire-empty-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; pointer-events: auto; }
+.wire-empty-btn {
+  font-size: 11.5px; padding: 4px 11px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border); color: var(--text-normal);
+  background: var(--background-primary);
+}
+.wire-empty-btn:hover { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
+
+/* ---- connector nubs: hover an element, drag a nub to connect ---- */
+.wire-nubs { position: absolute; inset: 0; pointer-events: none; }
+.wire-nub {
+  position: absolute; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--background-primary); border: 1.5px solid var(--interactive-accent);
+  pointer-events: auto; cursor: crosshair; box-sizing: border-box;
+  opacity: 0; transition: opacity 90ms ease;
+}
+.wire-el:hover .wire-nub, .wire-el.wire-selected .wire-nub { opacity: .55; }
+.wire-nub:hover { opacity: 1; transform: scale(1.25); }
+.wire-nub-n { left: calc(50% - 5.5px); top: -20px; }
+.wire-nub-s { left: calc(50% - 5.5px); bottom: -20px; }
+.wire-nub-w { left: -20px; top: calc(50% - 5.5px); }
+.wire-nub-e { right: -20px; top: calc(50% - 5.5px); }
+
+/* a faint outline on hover, so it is obvious what you are about to grab */
+.wire-el:hover { outline: 1px solid var(--background-modifier-border); outline-offset: 1px; }
+.wire-el.wire-selected:hover { outline: 1.5px solid var(--interactive-accent); }
+
+/* ---- alignment guides ---- */
+.wire-guides { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
+.wire-guide { position: absolute; background: var(--interactive-accent); opacity: .8; }
+.wire-guide-x { top: 0; bottom: 0; width: 1px; }
+.wire-guide-y { left: 0; right: 0; height: 1px; }

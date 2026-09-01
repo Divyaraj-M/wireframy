@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+*.log
+
+# nothing here is built: main.js, manifest.json and styles.css are the plugin
