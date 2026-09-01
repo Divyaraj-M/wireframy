@@ -100,6 +100,14 @@ function parseWf(src) {
  * ------------------------------------------------------------------ */
 
 // "Save changes (primary, w:200)" -> { text, mods:['primary'], style:{width:'200px'} }
+/* A deliberately small, deliberately desaturated palette. Six hues plus none.
+ * A wireframe is meant to read as unfinished, so these are the muted end of
+ * each hue rather than anything that competes with the content: enough to say
+ * "this one is the destructive path" or "this bit is still open", not enough to
+ * start a conversation about brand colour. Every one works as an outline on
+ * paper, as a tinted fill, and in a dark theme. */
+const WF_COLOURS = ['red', 'amber', 'green', 'blue', 'violet', 'slate'];
+
 function splitMods(value) {
   const out = { text: String(value || '').trim(), mods: [], style: {} };
   const m = out.text.match(/\(([^()]*)\)\s*$/);
@@ -108,7 +116,10 @@ function splitMods(value) {
   // only treat as a modifier list if it looks like one (no spaces-only prose)
   if (!inner || /[.?!]$/.test(inner)) return out;
   const parts = inner.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  const known = /^(primary|secondary|danger|ghost|disabled|active|selected|error|success|warning|muted|right|center|left|grow|fill|bold|small|large|round|flat|dashed|top|middle|bottom|stretch|nowrap)$/i;
+  const known = new RegExp('^(primary|secondary|danger|ghost|disabled|active|selected|' +
+    'error|success|warning|muted|right|center|centre|left|grow|fill|bold|small|large|' +
+    'round|flat|dashed|top|middle|bottom|stretch|nowrap|end|' +
+    WF_COLOURS.join('|') + ')$', 'i');
   const sized = /^(w|h|minw|minh|flex)\s*[:=]\s*(\d+)$/i;
   let recognised = 0;
   for (const p of parts) {
@@ -629,7 +640,7 @@ widget(['screen'], {
 
 widget(['modal', 'dialog'], {
   group: 'Container', label: 'Modal dialog', size: [520, 320],
-  snippet: 'modal: Delete this project?\n  text: This cannot be undone.\n  row:\n    btn: Cancel\n    btn: Delete (danger)',
+  snippet: 'modal: Delete this project?\n  text: This cannot be undone.\n  row: (right)\n    btn: Cancel\n    btn: Delete (danger)',
   render: function (el, node, ctx) {
     const head = el.createDiv({ cls: 'wf-modal-head' });
     head.createDiv({ cls: 'wf-modal-title', text: node.value || 'Dialog' });
@@ -824,7 +835,7 @@ widget(['password'], {
 });
 
 widget(['search'], {
-  group: 'Input', label: 'Search box', size: [340, 56],
+  group: 'Input', label: 'Search box', size: [320, 44],
   snippet: 'search: Filter projects...',
   render: function (el, node) {
     const info = splitMods(node.value);
@@ -953,7 +964,7 @@ widget(['upload', 'dropzone'], {
 });
 
 widget(['stepper', 'numberinput'], {
-  group: 'Input', label: 'Number stepper', size: [180, 56],
+  group: 'Input', label: 'Number stepper', size: [170, 44],
   snippet: 'stepper: 3',
   render: function (el, node) {
     const box = el.createDiv({ cls: 'wf-stepper' });
@@ -966,7 +977,7 @@ widget(['stepper', 'numberinput'], {
 /* ---------- Actions ---------- */
 
 widget(['btn', 'button'], {
-  group: 'Action', label: 'Button', size: [200, 56],
+  group: 'Action', label: 'Button', size: [140, 40],
   snippet: 'btn: Save changes (primary)',
   render: function (el, node) {
     const info = splitMods(node.value);
@@ -989,7 +1000,7 @@ widget(['btns', 'buttongroup', 'btngroup'], {
 });
 
 widget(['link', 'a'], {
-  group: 'Action', label: 'Text link', size: [180, 40],
+  group: 'Action', label: 'Text link', size: [140, 32],
   snippet: 'link: Forgot password?',
   render: function (el, node) {
     const info = splitMods(node.value);
@@ -999,7 +1010,7 @@ widget(['link', 'a'], {
 });
 
 widget(['icon'], {
-  group: 'Action', label: 'Icon', size: [80, 80],
+  group: 'Action', label: 'Icon', size: [48, 48],
   snippet: 'icon: briefcase',
   render: function (el, node) {
     const info = splitMods(node.value);
@@ -1020,9 +1031,13 @@ widget(['fab'], {
 
 /* ---------- Display ---------- */
 
+/* Heights measured, not guessed: h1 renders 30px tall at 360 wide, h3 21px.
+ * They all declared 56, so a dropped heading arrived in a box nearly twice the
+ * height of the text in it. */
+const HEADING_SIZE = { h1: [360, 44], h2: [320, 38], h3: [300, 34] };
 ['h1', 'h2', 'h3'].forEach(function (h) {
   widget([h], {
-    group: 'Display', label: 'Heading ' + h.slice(1), size: [360, 56],
+    group: 'Display', label: 'Heading ' + h.slice(1), size: HEADING_SIZE[h],
     snippet: h + ': Section heading',
     render: function (el, node) {
       const info = splitMods(node.value);
@@ -1033,7 +1048,7 @@ widget(['fab'], {
 });
 
 widget(['text', 'p', 'label', 'textbox', 'caption'], {
-  group: 'Display', label: 'Paragraph', size: [360, 80],
+  group: 'Display', label: 'Paragraph', size: [360, 44],
   snippet: 'text: A short line of body copy.',
   render: function (el, node) {
     const info = splitMods(node.value);
@@ -1069,7 +1084,7 @@ widget(['img', 'image'], {
 });
 
 widget(['avatar'], {
-  group: 'Display', label: 'Avatar / stack', size: [120, 72],
+  group: 'Display', label: 'Avatar / stack', size: [56, 56],
   snippet: 'avatar: AB',
   render: function (el, node) {
     const v = String(node.value || 'A').trim();
@@ -1231,7 +1246,7 @@ widget(['empty', 'emptystate'], {
 });
 
 widget(['spinner', 'loading'], {
-  group: 'Display', label: 'Loading state', size: [200, 80],
+  group: 'Display', label: 'Loading state', size: [96, 44],
   snippet: 'spinner: Loading projects',
   render: function (el, node) {
     const box = el.createDiv({ cls: 'wf-spinner-box' });
@@ -1651,13 +1666,13 @@ function drawPrimitive(el, node, kind) {
 
 widget(['rect', 'rectangle', 'box', 'block'], {
   group: 'Display', label: 'Rectangle', size: [240, 140],
-  snippet: 'rect: Anything goes in here',
+  snippet: 'rect:',
   render: function (el, node) { drawPrimitive(el, node, 'rect'); }
 });
 
 widget(['circle', 'ellipse', 'oval'], {
   group: 'Display', label: 'Circle / ellipse', size: [160, 160],
-  snippet: 'circle: Or here',
+  snippet: 'circle:',
   render: function (el, node) { drawPrimitive(el, node, 'circle'); }
 });
 
@@ -1805,11 +1820,22 @@ function renderTree(container, parentNode, ctx) {
     const wrap = container.createDiv({ cls: 'wf-w wf-w-' + def.name });
     const info = splitMods(child.value);
     applyStyle(wrap, info.style);
+    /* Mod classes go on the wrapper as well as wherever the renderer puts them.
+     * Renderers were each responsible for applying their own, so a widget that
+     * did not call splitMods — a sticky note, a badge — silently ignored every
+     * modifier. Putting them here means a colour rebinds its tokens once and
+     * cascades into whatever the renderer draws, including widgets added later. */
+    applyMods(wrap, info.mods);
+    /* And the renderer is handed the text WITHOUT the modifier suffix. Forty of
+     * the eighty-two widgets used node.value raw, so `note: Ask legal (blue)`
+     * printed "(blue)" on the sticky. Stripping here fixes all of them at once
+     * and means a widget added later cannot reintroduce the bug. */
+    const clean = Object.assign({}, child, { value: info.text });
     if (info.mods.indexOf('grow') >= 0 || info.mods.indexOf('fill') >= 0) wrap.style.flex = '1 1 auto';
     if (info.mods.indexOf('right') >= 0) wrap.style.marginLeft = 'auto';
     if (info.mods.indexOf('center') >= 0) { wrap.style.marginLeft = 'auto'; wrap.style.marginRight = 'auto'; }
     try {
-      def.render(wrap, child, ctx);
+      def.render(wrap, clean, ctx);
     } catch (e) {
       wrap.empty();
       wrap.createDiv({ cls: 'wf-error', text: '⚠ ' + child.type + ' — ' + (e && e.message ? e.message : 'render failed') });
@@ -2931,8 +2957,22 @@ function renderElementInto(host, elm, skin) {
   const root = host.createDiv({ cls: 'wf-root wf-skin-' + (skin || 'sketch') });
   if (!def) { root.createDiv({ cls: 'wf-error', text: 'unknown widget "' + elm.type + '"' }); return; }
   const wrap = root.createDiv({ cls: 'wf-w wf-w-' + def.name });
+  /* Same as renderTree: the wrapper carries the modifiers, so a colour rebinds
+   * its tokens once and everything the renderer draws inherits them. The board
+   * and the DSL are two entry points into the same widgets and must agree. */
+  /* Modifiers reach a board element two ways: the inspector's chips and
+   * swatches, which store them in elm.mods, and the text field, where a person
+   * can type "Delete (danger)" as the docs describe. Both have to apply — using
+   * only elm.mods silently dropped everything typed. */
+  const node = elementNode(elm);
+  const typed = splitMods(node.value);
+  const stored = Array.isArray(elm.mods) ? elm.mods : [];
+  const all = stored.slice();
+  for (const m of typed.mods) if (all.indexOf(m) < 0) all.push(m);
+  applyMods(wrap, all);
+  node.value = typed.text;
   try {
-    def.render(wrap, elementNode(elm), {});
+    def.render(wrap, node, {});
   } catch (e) {
     wrap.empty();
     wrap.createDiv({ cls: 'wf-error', text: '⚠ ' + (e && e.message ? e.message : 'render failed') });
@@ -3007,6 +3047,31 @@ function chromeInset(type, hasTitle) {
 
 const ROW_CONTAINERS = ['row', 'hbox', 'splitter', 'split'];
 
+/* Widgets with a natural size, which must never be stretched to fill their
+ * container. Dropping a modal used to divide the action row's width equally
+ * between Cancel and Delete, giving two 223px buttons in a 488px row — a
+ * wireframe of a dialog nobody would ever design. Everything in the Action
+ * group is intrinsic by definition; the rest are the controls and marks whose
+ * width is a property of the thing, not of the box it sits in. */
+const INTRINSIC = ['badge', 'avatar', 'checkbox', 'check', 'radio', 'toggle', 'switch',
+  'chip', 'stepper', 'number', 'rating', 'stars', 'spinner', 'loader',
+  'rect', 'rectangle', 'box', 'block', 'circle', 'ellipse', 'oval', 'triangle',
+  'callout', 'tooltip', 'brace', 'braces'];
+
+/* Containers whose height is a property of their contents, so the box should
+ * close under the last child rather than leaving dead space. Device frames are
+ * deliberately excluded: a browser window is a screen-sized surface you put
+ * things ON, and shrinking it to fit a heading would defeat the point. */
+const FIT_TO_CONTENT = ['modal', 'dialog', 'card', 'panel', 'fieldset', 'well',
+  'row', 'hbox', 'col', 'vbox', 'alert', 'note', 'sticky'];
+
+function naturalWidth(type) {
+  const def = WIDGETS[type];
+  if (!def) return null;
+  if (def.group === 'Action' || INTRINSIC.indexOf(type) >= 0) return def.size[0];
+  return null;                       // stretches to the container, as before
+}
+
 /* Lays a container's children out inside it, growing the container when its
  * declared size cannot hold them — better to end up with a taller field set
  * than with two squashed inputs, and you can resize it afterwards anyway.
@@ -3025,6 +3090,9 @@ function layoutChildren(parentNode, parentElm, out, nextId) {
 
   function makeChild(kid, x, y, w, h) {
     const info = splitMods(kid.value);
+    const nat = naturalWidth(WIDGETS[kid.type].name);
+    // never wider than the widget's own size, and never wider than the space
+    if (nat !== null) w = Math.min(w, nat);
     return {
       id: nextId++, type: WIDGETS[kid.type].name,
       x: Math.round(x), y: Math.round(y),
@@ -3038,18 +3106,32 @@ function layoutChildren(parentNode, parentElm, out, nextId) {
 
   if (horizontal) {
     const each = Math.max(40, Math.floor((innerW - gap * (kids.length - 1)) / kids.length));
-    let x = innerX;
-    let tallest = 0;
+    /* Build first, measure, then place. Intrinsic children keep their own width,
+     * so the row usually does not fill — which is what lets a (right) or
+     * (center) row put its buttons where a real dialog puts them. */
+    const built = [];
     for (const kid of kids) {
       const def = WIDGETS[kid.type];
-      const elm = makeChild(kid, x, top, each, def.size[1]);
-      out.push(elm);
-      nextId = layoutChildren(kid, elm, out, nextId);
-      tallest = Math.max(tallest, elm.h);
-      x += each + gap;
+      built.push({ kid: kid, elm: makeChild(kid, innerX, top, each, def.size[1]) });
+    }
+    const used = built.reduce(function (n, b) { return n + b.elm.w; }, 0) + gap * (built.length - 1);
+    const slack = Math.max(0, innerW - used);
+    const mods = splitMods(parentNode.value).mods;
+    let x = innerX;
+    if (mods.indexOf('right') >= 0 || mods.indexOf('end') >= 0) x += slack;
+    else if (mods.indexOf('center') >= 0 || mods.indexOf('centre') >= 0) x += Math.round(slack / 2);
+    let tallest = 0;
+    for (const b of built) {
+      b.elm.x = Math.round(x);
+      out.push(b.elm);
+      nextId = layoutChildren(b.kid, b.elm, out, nextId);
+      tallest = Math.max(tallest, b.elm.h);
+      x += b.elm.w + gap;
     }
     const needed = top + tallest + pad - parentElm.y;
-    if (needed > parentElm.h) parentElm.h = Math.round(needed);
+    if (needed > parentElm.h || FIT_TO_CONTENT.indexOf(parentElm.type) >= 0) {
+      parentElm.h = Math.max(40, Math.round(needed));
+    }
     return nextId;
   }
 
@@ -3062,7 +3144,9 @@ function layoutChildren(parentNode, parentElm, out, nextId) {
     y += elm.h + gap;
   }
   const needed = (y - gap) + pad - parentElm.y;
-  if (needed > parentElm.h) parentElm.h = Math.round(needed);
+  if (needed > parentElm.h || FIT_TO_CONTENT.indexOf(parentElm.type) >= 0) {
+    parentElm.h = Math.max(40, Math.round(needed));
+  }
   return nextId;
 }
 
@@ -3188,7 +3272,7 @@ const MODS_BY_TYPE = {
   alert: ['error', 'success', 'warning'],
   input: ['disabled'], password: ['disabled'], search: ['disabled'],
   textarea: ['disabled'], select: ['disabled'], date: ['disabled'],
-  row: ['top', 'middle', 'bottom', 'stretch', 'nowrap'],
+  row: ['top', 'middle', 'bottom', 'stretch', 'nowrap', 'right', 'center'],
   text: MODS_ALL, h1: ['center', 'right'], h2: ['center', 'right'], h3: ['center', 'right'],
   table: ['flat'], icon: ['large'], shape: ['fill', 'dashed'],
   rect: ['fill', 'dashed', 'bold', 'muted', 'small', 'large'],
@@ -3198,6 +3282,16 @@ const MODS_BY_TYPE = {
 function modsFor(type) {
   if (Object.prototype.hasOwnProperty.call(MODS_BY_TYPE, type)) return MODS_BY_TYPE[type];
   return ['bold', 'muted', 'small', 'large', 'disabled'];
+}
+
+/* Colour is offered separately from state, because it is a different kind of
+ * choice: state says what the control IS, colour says what you want the reader
+ * to notice. Mixed into one row of chips they read as alternatives. */
+const NO_COLOUR = ['window', 'browser', 'phone', 'device', 'screen', 'row', 'hbox',
+  'col', 'vbox', 'splitter', 'split', 'scroll', 'spacer', 'greek', 'lorem'];
+
+function coloursFor(type) {
+  return NO_COLOUR.indexOf(type) >= 0 ? [] : WF_COLOURS;
 }
 
 /* Human wording for what the one-line field actually is, per widget. */
@@ -5336,6 +5430,48 @@ class WireEditorView extends TextFileView {
       }
     }
 
+    /* Colour: swatches, not chips, and exactly one at a time. Six named hues
+     * plus none, so the choice is small enough to make without thinking. */
+    const colours = coloursFor(e.type);
+    if (colours.length) {
+      const fc = host.createDiv({ cls: 'wire-ins-field' });
+      fc.createDiv({ cls: 'wire-ins-label', text: 'Colour' });
+      const row = fc.createDiv({ cls: 'wire-ins-swatches' });
+      const setColour = (name) => {
+        // one colour at a time: drop any other before adding
+        e.mods = e.mods.filter((m) => colours.indexOf(m) < 0);
+        if (name) e.mods.push(name);
+        this.commit();
+      };
+      const current = e.mods.filter((m) => colours.indexOf(m) >= 0)[0] || null;
+      const none = row.createDiv({
+        cls: 'wire-ins-swatch wire-ins-swatch-none' + (current ? '' : ' wire-on')
+      });
+      none.setAttribute('role', 'button');
+      none.setAttribute('tabindex', '0');
+      none.setAttribute('aria-label', 'No colour');
+      none.setAttribute('title', 'No colour');
+      const pick = (el, name) => {
+        el.addEventListener('click', () => setColour(name));
+        el.addEventListener('keydown', (evt) => {
+          if (evt.key !== 'Enter' && evt.key !== ' ') return;
+          evt.preventDefault();
+          setColour(name);
+        });
+      };
+      pick(none, null);
+      for (const c of colours) {
+        const sw = row.createDiv({
+          cls: 'wire-ins-swatch wire-sw-' + c + (current === c ? ' wire-on' : '')
+        });
+        sw.setAttribute('role', 'button');
+        sw.setAttribute('tabindex', '0');
+        sw.setAttribute('aria-label', c);
+        sw.setAttribute('title', c + '  \u00b7  or type (' + c + ') after the text');
+        pick(sw, c);
+      }
+    }
+
     // geometry
     const f4 = host.createDiv({ cls: 'wire-ins-field' });
     f4.createDiv({ cls: 'wire-ins-label', text: 'Position and size' });
@@ -6081,6 +6217,9 @@ module.exports.__internals = {
   linkGeometry: linkGeometry,
   bezierAt: bezierAt,
   bezierPath: bezierPath,
+  WF_COLOURS: WF_COLOURS,
+  coloursFor: coloursFor,
+  naturalWidth: naturalWidth,
   ROWS_WIDGETS: ROWS_WIDGETS,
   defTakesRows: defTakesRows,
   WIRE_CLIP_KIND: WIRE_CLIP_KIND

@@ -105,11 +105,11 @@
 .wf-stack { display: flex; flex-direction: column; gap: var(--wf-gap); min-width: 0; }
 .wf-w { min-width: 0; }
 .wf-row-box { display: flex; flex-direction: row; gap: var(--wf-gap); align-items: flex-end; min-width: 0; flex-wrap: wrap; }
-.wf-row-box.wf-m-top { align-items: flex-start; }
-.wf-row-box.wf-m-middle { align-items: center; }
-.wf-row-box.wf-m-bottom { align-items: flex-end; }
-.wf-row-box.wf-m-stretch { align-items: stretch; }
-.wf-row-box.wf-m-nowrap { flex-wrap: nowrap; }
+.wf-row-box.wf-m-top, .wf-w.wf-m-top .wf-row-box { align-items: flex-start; }
+.wf-row-box.wf-m-middle, .wf-w.wf-m-middle .wf-row-box { align-items: center; }
+.wf-row-box.wf-m-bottom, .wf-w.wf-m-bottom .wf-row-box { align-items: flex-end; }
+.wf-row-box.wf-m-stretch, .wf-w.wf-m-stretch .wf-row-box { align-items: stretch; }
+.wf-row-box.wf-m-nowrap, .wf-w.wf-m-nowrap .wf-row-box { flex-wrap: nowrap; }
 .wf-col-box { flex: 1 1 auto; }
 .wf-w-row { display: block; }
 
@@ -266,13 +266,13 @@
 /* ---------- Actions ---------- */
 
 .wf-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); font-weight: 600; border-radius: var(--wf-radius); white-space: nowrap; min-height: 32px; }
-.wf-btn.wf-m-primary { background: var(--wf-accent); color: var(--wf-accent-ink); }
-.wf-btn.wf-m-danger { border-color: var(--wf-danger); color: var(--wf-danger); background: transparent; }
-.wf-btn.wf-m-ghost, .wf-btn.wf-m-secondary { background: transparent; }
-.wf-btn.wf-m-disabled, .wf-m-disabled { opacity: 0.4; }
-.wf-btn.wf-m-fill { width: 100%; }
-.wf-btn.wf-m-small { padding: 4px 10px; min-height: 24px; font-size: 11.5px; }
-.wf-btn.wf-m-large { padding: 12px 22px; min-height: 42px; font-size: 15px; }
+.wf-btn.wf-m-primary, .wf-w.wf-m-primary .wf-btn { background: var(--wf-accent); color: var(--wf-accent-ink); }
+.wf-btn.wf-m-danger, .wf-w.wf-m-danger .wf-btn { border-color: var(--wf-danger); color: var(--wf-danger); background: transparent; }
+.wf-btn.wf-m-ghost, .wf-w.wf-m-ghost .wf-btn, .wf-btn.wf-m-secondary, .wf-w.wf-m-secondary .wf-btn { background: transparent; }
+.wf-btn.wf-m-disabled, .wf-w.wf-m-disabled .wf-btn, .wf-m-disabled { opacity: 0.4; }
+.wf-btn.wf-m-fill, .wf-w.wf-m-fill .wf-btn { width: 100%; }
+.wf-btn.wf-m-small, .wf-w.wf-m-small .wf-btn { padding: 4px 10px; min-height: 24px; font-size: 11.5px; }
+.wf-btn.wf-m-large, .wf-w.wf-m-large .wf-btn { padding: 12px 22px; min-height: 42px; font-size: 15px; }
 .wf-btngroup { display: inline-flex; }
 .wf-btngroup .wf-seg { border-radius: 0; margin-left: calc(var(--wf-bw) * -1); background: var(--wf-paper); font-weight: 500; }
 .wf-btngroup .wf-seg:first-child { margin-left: 0; }
@@ -336,7 +336,7 @@
 .wf-badge.wf-active { border-color: var(--wf-line); background: var(--wf-fill); color: var(--wf-ink); font-weight: 700; }
 
 .wf-alert { display: flex; gap: 9px; align-items: center; border: var(--wf-bw) solid var(--wf-line); border-left-width: 4px; padding: 9px 12px; background: var(--wf-fill-soft); }
-.wf-alert.wf-m-error { border-left-color: var(--wf-danger); }
+.wf-alert.wf-m-error, .wf-w.wf-m-error .wf-alert { border-left-color: var(--wf-danger); }
 .wf-alert-glyph { flex: 0 0 auto; color: var(--wf-ink-soft); }
 
 .wf-progress { height: 9px; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-paper); overflow: hidden; }
@@ -465,7 +465,7 @@
 .wf-skin-wire .wf-ico svg { stroke-width: 1.5; }
 
 .wf-icon { display: flex; align-items: center; justify-content: center; color: var(--wf-ink); }
-.wf-icon.wf-m-large { transform: scale(1.4); transform-origin: left center; }
+.wf-icon.wf-m-large, .wf-w.wf-m-large .wf-icon { transform: scale(1.4); transform-origin: left center; }
 .wf-iconrow { display: flex; flex-wrap: wrap; gap: 4px; }
 .wf-iconrow-cell {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -588,6 +588,45 @@
 .wf-map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -85%); color: var(--wf-ink); }
 .wf-map-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 9px; font-size: 11px; background: var(--wf-paper); border-top: 1px solid var(--wf-line-soft); color: var(--wf-ink-soft); }
 
+/* ==================================================================
+   COLOUR
+   Six muted hues plus none. Defined at document level, not on .wf-root,
+   because the inspector's swatches need them too and the inspector is not
+   inside a wireframe.
+
+   Each hue is three tokens — line, ink, fill — and a colour modifier does
+   nothing except rebind the three tokens every widget already draws from.
+   So a colour works on a button, a shape, a table and a sticky note without
+   a single per-widget rule, and anything added later inherits it for free.
+   ================================================================== */
+:root {
+  --wf-c-red-line: #b0554b;    --wf-c-red-ink: #8f4238;    --wf-c-red-fill: #f6e6e3;
+  --wf-c-amber-line: #9d7529;  --wf-c-amber-ink: #7d5c1e;  --wf-c-amber-fill: #f7efdc;
+  --wf-c-green-line: #4c7a51;  --wf-c-green-ink: #3b6140;  --wf-c-green-fill: #e4efe5;
+  --wf-c-blue-line: #4a6d93;   --wf-c-blue-ink: #3a5675;   --wf-c-blue-fill: #e3eaf2;
+  --wf-c-violet-line: #6a5c8f; --wf-c-violet-ink: #544871; --wf-c-violet-fill: #e9e5f1;
+  --wf-c-slate-line: #5c6672;  --wf-c-slate-ink: #48505a;  --wf-c-slate-fill: #e8eaed;
+}
+.theme-dark {
+  --wf-c-red-line: #d99189;    --wf-c-red-ink: #e6a9a1;    --wf-c-red-fill: #3a2b28;
+  --wf-c-amber-line: #c2a05c;  --wf-c-amber-ink: #d4b475;  --wf-c-amber-fill: #35301f;
+  --wf-c-green-line: #86ab8a;  --wf-c-green-ink: #9dbfa0;  --wf-c-green-fill: #263028;
+  --wf-c-blue-line: #8aa5c2;   --wf-c-blue-ink: #a2b9d1;   --wf-c-blue-fill: #262d35;
+  --wf-c-violet-line: #a294c2; --wf-c-violet-ink: #b5a9d1; --wf-c-violet-fill: #2c2833;
+  --wf-c-slate-line: #98a1ab;  --wf-c-slate-ink: #adb5bd;  --wf-c-slate-fill: #2a2d31;
+}
+
+.wf-m-red { --wf-line: var(--wf-c-red-line); --wf-ink: var(--wf-c-red-ink); --wf-fill: var(--wf-c-red-fill); --wf-accent: var(--wf-c-red-line); --wf-note: var(--wf-c-red-fill); --wf-note-line: var(--wf-c-red-line); }
+.wf-m-amber { --wf-line: var(--wf-c-amber-line); --wf-ink: var(--wf-c-amber-ink); --wf-fill: var(--wf-c-amber-fill); --wf-accent: var(--wf-c-amber-line); --wf-note: var(--wf-c-amber-fill); --wf-note-line: var(--wf-c-amber-line); }
+.wf-m-green { --wf-line: var(--wf-c-green-line); --wf-ink: var(--wf-c-green-ink); --wf-fill: var(--wf-c-green-fill); --wf-accent: var(--wf-c-green-line); --wf-note: var(--wf-c-green-fill); --wf-note-line: var(--wf-c-green-line); }
+.wf-m-blue { --wf-line: var(--wf-c-blue-line); --wf-ink: var(--wf-c-blue-ink); --wf-fill: var(--wf-c-blue-fill); --wf-accent: var(--wf-c-blue-line); --wf-note: var(--wf-c-blue-fill); --wf-note-line: var(--wf-c-blue-line); }
+.wf-m-violet { --wf-line: var(--wf-c-violet-line); --wf-ink: var(--wf-c-violet-ink); --wf-fill: var(--wf-c-violet-fill); --wf-accent: var(--wf-c-violet-line); --wf-note: var(--wf-c-violet-fill); --wf-note-line: var(--wf-c-violet-line); }
+.wf-m-slate { --wf-line: var(--wf-c-slate-line); --wf-ink: var(--wf-c-slate-ink); --wf-fill: var(--wf-c-slate-fill); --wf-accent: var(--wf-c-slate-line); --wf-note: var(--wf-c-slate-fill); --wf-note-line: var(--wf-c-slate-line); }
+
+/* A coloured element paints its own outline and text; the token rebind above
+   does the rest. Border and colour are restated so widgets that hardcoded
+   neither still pick the colour up. */
+.wf-w[class*="wf-m-"] { color: var(--wf-ink); }
 /* shapes */
 /* ---------- primitives: a box, a circle, a triangle ---------- *
    Each fills its element and centres whatever text it holds, so a labelled
@@ -620,16 +659,16 @@
   fill: none; stroke: var(--wf-line); stroke-width: var(--wf-bw); stroke-linejoin: round;
 }
 .wf-prim-triangle .wf-prim-text { position: relative; }
-.wf-prim.wf-m-fill { background: var(--wf-fill); }
-.wf-prim-triangle.wf-m-fill { background: none; }
-.wf-prim-triangle.wf-m-fill .wf-prim-tri polygon { fill: var(--wf-fill); }
-.wf-prim-triangle.wf-m-dashed .wf-prim-tri polygon { stroke-dasharray: 7 5; }
-.wf-prim-triangle.wf-m-muted .wf-prim-tri polygon { stroke: var(--wf-line-soft); }
-.wf-prim.wf-m-dashed { border-style: dashed; }
-.wf-prim.wf-m-muted { border-color: var(--wf-line-soft); color: var(--wf-ink-soft); }
-.wf-prim.wf-m-bold .wf-prim-text { font-weight: 700; }
-.wf-prim.wf-m-small .wf-prim-text { font-size: 11px; }
-.wf-prim.wf-m-large .wf-prim-text { font-size: 17px; }
+.wf-prim.wf-m-fill, .wf-w.wf-m-fill .wf-prim { background: var(--wf-fill); }
+.wf-prim-triangle.wf-m-fill, .wf-w.wf-m-fill .wf-prim-triangle { background: none; }
+.wf-prim-triangle.wf-m-fill, .wf-w.wf-m-fill .wf-prim-triangle .wf-prim-tri polygon { fill: var(--wf-fill); }
+.wf-prim-triangle.wf-m-dashed, .wf-w.wf-m-dashed .wf-prim-triangle .wf-prim-tri polygon { stroke-dasharray: 7 5; }
+.wf-prim-triangle.wf-m-muted, .wf-w.wf-m-muted .wf-prim-triangle .wf-prim-tri polygon { stroke: var(--wf-line-soft); }
+.wf-prim.wf-m-dashed, .wf-w.wf-m-dashed .wf-prim { border-style: dashed; }
+.wf-prim.wf-m-muted, .wf-w.wf-m-muted .wf-prim { border-color: var(--wf-line-soft); color: var(--wf-ink-soft); }
+.wf-prim.wf-m-bold, .wf-w.wf-m-bold .wf-prim .wf-prim-text { font-weight: 700; }
+.wf-prim.wf-m-small, .wf-w.wf-m-small .wf-prim .wf-prim-text { font-size: 11px; }
+.wf-prim.wf-m-large, .wf-w.wf-m-large .wf-prim .wf-prim-text { font-size: 17px; }
 /* the sketch skin makes every corner slightly wrong, and a "circle" should be
    a hand-drawn oval rather than a compass-perfect one */
 .wf-skin-sketch .wf-prim-rect { border-radius: 4px 10px 5px 9px / 9px 4px 10px 5px; }
@@ -1044,6 +1083,37 @@
   background: var(--interactive-accent); border-color: var(--interactive-accent);
   color: var(--text-on-accent);
 }
+/* Swatches rather than chips: colour is a single choice from a small set, and a
+   row of coloured squares says that faster than six words would. */
+.wire-ins-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.wire-ins-swatch {
+  width: 24px; height: 24px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+  box-sizing: border-box;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.wire-ins-swatch:hover { transform: translateY(-1px); }
+.wire-ins-swatch:active { transform: scale(.94); }
+.wire-ins-swatch.wire-on {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+  border-color: transparent;
+}
+/* "none" reads as an empty slot, not as a white colour */
+.wire-ins-swatch-none {
+  background: var(--background-primary);
+  position: relative; overflow: hidden;
+}
+.wire-ins-swatch-none::after {
+  content: ''; position: absolute; left: -2px; top: 50%; width: 30px; height: 1px;
+  background: var(--background-modifier-border); transform: rotate(-45deg);
+}
+.wire-sw-red    { background: var(--wf-c-red-fill);    border-color: var(--wf-c-red-line); }
+.wire-sw-amber  { background: var(--wf-c-amber-fill);  border-color: var(--wf-c-amber-line); }
+.wire-sw-green  { background: var(--wf-c-green-fill);  border-color: var(--wf-c-green-line); }
+.wire-sw-blue   { background: var(--wf-c-blue-fill);   border-color: var(--wf-c-blue-line); }
+.wire-sw-violet { background: var(--wf-c-violet-fill); border-color: var(--wf-c-violet-line); }
+.wire-sw-slate  { background: var(--wf-c-slate-fill);  border-color: var(--wf-c-slate-line); }
+
 .wire-ins-geom { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .wire-ins-geomcell { display: flex; align-items: center; gap: 5px; }
 .wire-ins-geomkey { font-size: 11px; color: var(--text-muted); width: 13px; }
