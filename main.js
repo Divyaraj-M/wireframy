@@ -3625,7 +3625,17 @@ class WireEditorView extends TextFileView {
       if (label) b.createSpan({ cls: 'wire-tb-label', text: label });
       b.setAttribute('aria-label', title);
       b.setAttribute('title', title);
+      /* A div with a click handler is invisible to the keyboard. role, tabindex
+       * and Enter/Space are what make it a button to everything that is not a
+       * mouse. */
+      b.setAttribute('role', 'button');
+      b.setAttribute('tabindex', '0');
       b.addEventListener('click', () => { fn(); this.stageEl.focus(); });
+      b.addEventListener('keydown', (evt) => {
+        if (evt.key !== 'Enter' && evt.key !== ' ') return;
+        evt.preventDefault();
+        fn();
+      });
       return b;
     };
     const sep = () => t.createDiv({ cls: 'wire-tb-sep' });
@@ -4023,7 +4033,14 @@ class WireEditorView extends TextFileView {
         renderWireframe(stage, def.snippet, { skin: this.skin() });
         card.setAttribute('title', def.name + (def.aliases.length ? '  ·  ' + def.aliases.join(', ') : '') +
           '\n\nDrag onto the canvas, or click to drop it in the middle.');
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
         card.addEventListener('click', () => this.placeAtCentre(def));
+        card.addEventListener('keydown', (evt) => {
+          if (evt.key !== 'Enter' && evt.key !== ' ') return;
+          evt.preventDefault();
+          this.placeAtCentre(def);
+        });
         card.setAttribute('draggable', 'true');
         card.addEventListener('dragstart', (evt) => {
           this.palDrag = def;
@@ -4178,7 +4195,7 @@ class WireEditorView extends TextFileView {
     box.createDiv({ cls: 'wire-empty-title', text: 'Start with a screen' });
     box.createDiv({
       cls: 'wire-empty-body',
-      text: 'Drag a widget from UI elements on the left, or click one to drop it here.'
+      text: 'Drag one from Elements on the left, or click it to drop it here.'
     });
     const row = box.createDiv({ cls: 'wire-empty-row' });
     for (const name of ['window', 'phone', 'card']) {

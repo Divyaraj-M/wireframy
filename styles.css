@@ -732,18 +732,56 @@
 .wire-tb-group { display: flex; align-items: center; gap: 2px; }
 .wire-tb-group.wire-dim { opacity: .35; pointer-events: none; }
 .wire-tb-sep { width: 1px; height: 20px; background: var(--background-modifier-border); margin: 0 6px; }
+/* min-height 26px: measured 23px, one pixel under the 24px floor in WCAG 2.2
+   SC 2.5.8 (Target Size, Minimum). Padding alone was doing the sizing, so a
+   short label made a short button. */
 .wire-tb-btn {
-  display: flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 5px;
+  display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 5px;
+  min-height: 26px; box-sizing: border-box;
   cursor: pointer; color: var(--text-muted); font-size: 12px;
+  transition: background-color 100ms ease, color 100ms ease, transform 80ms ease;
 }
+.wire-tb-btn:active { transform: scale(.96); }
 .wire-tb-btn:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .wire-tb-btn.wire-on { background: var(--background-modifier-hover); color: var(--text-normal); }
+/* The zoom label resets to 100% when clicked, so it is a control and needs a
+   control-sized target: it measured 46×14. */
 .wire-tb-zoom {
-  min-width: 46px; text-align: center; font-size: 11.5px; cursor: pointer;
+  min-width: 50px; min-height: 26px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 11.5px; cursor: pointer; border-radius: 5px;
   color: var(--text-muted); font-variant-numeric: tabular-nums;
+  transition: background-color 100ms ease, color 100ms ease;
 }
+.wire-tb-zoom:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .wire-tb-spacer { flex: 1 1 auto; }
-.wire-tb-count { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.wire-tb-count { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- focus ----
+   There were no focus styles anywhere in the editor: a keyboard user had no way
+   to see where they were. One ring, defined once, on every control that takes
+   a keypress. :focus-visible so a mouse click does not leave a ring behind. */
+/* Scoped to controls by name, not `.wire-app :focus-visible`. The blanket
+   version also ringed the drawing surface: clicking the canvas drew a 2px
+   accent rectangle around the whole board, because the stage carries a tabindex
+   so it can receive key commands. The stage is a surface, not a control. */
+.wire-tb-btn:focus-visible,
+.wire-tb-zoom:focus-visible,
+.wire-pal-tab:focus-visible,
+.wire-pal-card:focus-visible,
+.wire-pal-icon:focus-visible,
+.wire-ins-btn:focus-visible,
+.wire-ins-chip:focus-visible,
+.wire-ins-align:focus-visible,
+.wire-ins-close:focus-visible,
+.wire-inspector input:focus-visible,
+.wire-inspector textarea:focus-visible,
+.wire-palette input:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+/* the surface never draws one, however it came to be focused */
+.wire-stage:focus, .wire-stage:focus-visible { outline: none; }
 
 /* ---- UI Library ---- */
 /* The palette floats over the canvas rather than docking beside it, as a
@@ -765,8 +803,8 @@
 .wire-pal-search { margin: 0 10px 8px; }
 .wire-pal-list { flex: 1 1 auto; overflow-y: auto; padding: 0 10px 20px; }
 .wire-pal-group {
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
-  color: var(--text-faint); margin: 12px 0 5px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); margin: 14px 0 6px;
 }
 .wire-pal-cards { display: flex; flex-direction: column; gap: 5px; }
 .wire-pal-card {
@@ -812,11 +850,30 @@
 /* Collapsed (job: the canvas is what you came for). The palette keeps its tabs
    and its search box - the two things you reach for - and hides the list until
    you use one of them. */
+/* Opening the palette is an occasional act with a large visual delta, which is
+   exactly where a short transition earns its place. It used to be display:none,
+   which cannot transition, so the list appeared in one frame. Transform and
+   opacity only — never height. */
 .wire-palette.wire-pal-shut { max-height: none; border-bottom-right-radius: 6px; }
-.wire-palette.wire-pal-shut .wire-pal-list { display: none; }
+.wire-palette.wire-pal-shut .wire-pal-list {
+  opacity: 0; transform: translateY(-4px);
+  pointer-events: none; max-height: 0; overflow: hidden;
+}
 .wire-palette:not(.wire-pal-shut) { height: 100%; }
+.wire-pal-list {
+  opacity: 1; transform: none;
+  transition: opacity 130ms cubic-bezier(.16,1,.3,1), transform 130ms cubic-bezier(.16,1,.3,1);
+}
+
+/* Selection happens hundreds of times in a session, so the inspector appearing
+   is NOT animated — a panel that slides on every click would be noise. Only its
+   contents fade, which removes the flash without delaying anything. */
+.wire-inspector:not(.wire-hidden) > * {
+  animation: wire-ins-in 120ms cubic-bezier(.16,1,.3,1);
+}
+@keyframes wire-ins-in { from { opacity: 0; } to { opacity: 1; } }
 .wire-pal-hint {
-  font-size: 10.5px; color: var(--text-faint); padding: 0 11px 9px; line-height: 1.4;
+  font-size: 11.5px; color: var(--text-muted); padding: 0 11px 9px; line-height: 1.4;
 }
 
 .wire-pal-tabs {
@@ -834,9 +891,9 @@
   color: var(--text-normal); border-bottom-color: var(--interactive-accent);
 }
 .wire-pal-tab-count {
-  font-size: 10px; font-variant-numeric: tabular-nums;
-  padding: 1px 5px; border-radius: 8px;
-  background: var(--background-modifier-hover); color: var(--text-faint);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+  padding: 1px 6px; border-radius: 8px;
+  background: var(--background-modifier-hover); color: var(--text-muted);
 }
 .wire-pal-tab.wire-on .wire-pal-tab-count { color: var(--text-muted); }
 
@@ -957,8 +1014,8 @@
 .wire-ins-close:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
 .wire-ins-head { font-size: 14px; font-weight: 700; }
 .wire-ins-sub {
-  font-family: var(--font-monospace, monospace); font-size: 11px;
-  color: var(--text-faint); margin-bottom: 12px;
+  font-family: var(--font-monospace, monospace); font-size: 11.5px;
+  color: var(--text-muted); margin-bottom: 14px;
 }
 .wire-ins-empty { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 .wire-ins-tips { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; }
@@ -969,16 +1026,19 @@
   flex: 0 0 auto; white-space: nowrap;
 }
 .wire-ins-field { margin-bottom: 12px; }
-.wire-ins-label { font-size: 10.5px; color: var(--text-faint); margin-bottom: 4px; line-height: 1.35; }
+.wire-ins-label { font-size: 11.5px; color: var(--text-muted); margin-bottom: 5px; line-height: 1.4; }
 .wire-inspector input[type="text"], .wire-inspector textarea { width: 100%; box-sizing: border-box; }
 .wire-inspector textarea {
   font-family: var(--font-monospace, monospace); font-size: 12px;
   line-height: 1.5; resize: vertical;
 }
 .wire-ins-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* Modifier chips toggle state, so they are controls too — they measured 36×19. */
 .wire-ins-chip {
-  font-size: 11px; padding: 2px 8px; border-radius: 11px; cursor: pointer;
+  font-size: 11px; padding: 4px 10px; border-radius: 12px; cursor: pointer;
+  min-height: 24px; box-sizing: border-box; display: inline-flex; align-items: center;
   border: 1px solid var(--background-modifier-border); color: var(--text-muted);
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease;
 }
 .wire-ins-chip.wire-on {
   background: var(--interactive-accent); border-color: var(--interactive-accent);
@@ -986,15 +1046,28 @@
 }
 .wire-ins-geom { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .wire-ins-geomcell { display: flex; align-items: center; gap: 5px; }
-.wire-ins-geomkey { font-size: 10px; color: var(--text-faint); width: 12px; }
+.wire-ins-geomkey { font-size: 11px; color: var(--text-muted); width: 13px; }
 .wire-ins-geomcell input { width: 100%; box-sizing: border-box; }
 .wire-ins-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 14px; }
 .wire-ins-btn {
-  font-size: 11.5px; padding: 4px 9px; border-radius: 5px; cursor: pointer;
+  font-size: 11.5px; padding: 5px 10px; border-radius: 5px; cursor: pointer;
+  min-height: 26px; box-sizing: border-box;
   border: 1px solid var(--background-modifier-border); color: var(--text-normal);
+  transition: background-color 100ms ease, border-color 100ms ease, transform 80ms ease;
 }
 .wire-ins-btn:hover { background: var(--background-modifier-hover); }
-.wire-ins-btn.wire-danger { color: var(--text-error, #c0392b); }
+.wire-ins-btn:active { transform: scale(.97); }
+/* The destructive action sat in the same row, at the same weight, as "Edit text".
+   Pushed to its own row by the flex-basis break, and it only turns red on
+   approach — so the eye is not drawn to Delete before anything else. */
+.wire-ins-actions { position: relative; }
+.wire-ins-btn.wire-danger {
+  color: var(--text-muted); margin-left: auto;
+}
+.wire-ins-btn.wire-danger:hover {
+  color: var(--text-error, #c0392b); border-color: var(--text-error, #c0392b);
+  background: transparent;
+}
 .wire-ins-alignrow { display: flex; flex-wrap: wrap; gap: 4px; }
 .wire-ins-align {
   width: 30px; height: 28px; display: flex; align-items: center; justify-content: center;
@@ -1088,3 +1161,23 @@
 .wire-guide { position: absolute; background: var(--interactive-accent); opacity: .8; }
 .wire-guide-x { top: 0; bottom: 0; width: 1px; }
 .wire-guide-y { left: 0; right: 0; height: 1px; }
+
+/* ==================================================================
+   REDUCED MOTION
+   One block, last, so nothing added later escapes it. Everything above
+   animates only transform, opacity and colour, so removing it costs
+   nothing but the movement.
+   ================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  /* Specificity, not !important — the plugin ships zero !important and the
+     community CSS lint checks for it. .wire-host .wire-app * is 0,2,0, which
+     ties the most specific animated rule here and wins on source order because
+     this block is last in the file. Verified under emulation, not assumed. */
+  .wire-host .wire-app *, .wire-host .wire-app *::before, .wire-host .wire-app *::after {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
+  .wire-host .wire-app .wire-tb-btn:active,
+  .wire-host .wire-app .wire-ins-btn:active { transform: none; }
+}

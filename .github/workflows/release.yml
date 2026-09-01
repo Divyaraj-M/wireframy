@@ -1,0 +1,95 @@
+# Push a tag, get a release. Nothing is dragged into a browser by hand.
+#
+# This exists because doing it manually went wrong twice in a row: once the
+# title was left blank (so the listing warned that the release name did not
+# contain the version), and once the three files were simply not attached, which
+# leaves a release Obsidian cannot install from. Both are now impossible.
+#
+#   git tag 1.0.3 && git push origin 1.0.3
+#
+# and the workflow checks the tag against manifest.json, attaches main.js,
+# manifest.json and styles.css as three separate assets, titles the release
+# after the tag, and attests their provenance.
+
+name: Release
+
+on:
+  push:
+    tags:
+      # x.y.z only, and no leading "v" — Obsidian matches the tag against
+      # manifest.json exactly, so a v-prefixed tag is not findable
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write        # create the release
+  id-token: write        # sign the provenance attestation
+  attestations: write    # record it
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The failure this catches is silent: a tag that does not equal the
+      # manifest version produces a release Obsidian will never look at.
+      - name: Tag must equal the manifest version
+        run: |
+          tag="$GITHUB_REF_NAME"
+          manifest="$(jq -r .version manifest.json)"
+          echo "tag=$tag  manifest=$manifest"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::tag '$tag' does not match manifest.json version '$manifest'."
+            echo "::error::Fix manifest.json, or move the tag, then push again."
+            exit 1
+          fi
+
+      - name: The three assets must exist
+        run: |
+          missing=0
+          for f in main.js manifest.json styles.css; do
+            [ -f "$f" ] || { echo "::error::$f is missing from the repo root"; missing=1; }
+          done
+          [ "$missing" -eq 0 ]
+
+      # Answers the community reviewer's "Missing GitHub artifact attestations"
+      # recommendation: proves these bytes came from this repo at this commit.
+      - name: Attest the assets
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+
+      # Notes come from docs/release-notes/<version>.md when you have written
+      # them, and from GitHub's generated diff when you have not, so a release
+      # never blocks on prose.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="docs/release-notes/$GITHUB_REF_NAME.md"
+          if [ -f "$notes" ]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$notes" \
+              --verify-tag \
+              main.js manifest.json styles.css
+          else
+            echo "::notice::no $notes — using generated notes"
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag \
+              main.js manifest.json styles.css
+          fi
+
+      - name: Say what shipped
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$GITHUB_REF_NAME" --json tagName,name,isDraft,isPrerelease,assets
