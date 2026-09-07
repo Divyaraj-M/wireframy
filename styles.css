@@ -1233,6 +1233,48 @@
 .wire-guide-y { left: 0; right: 0; height: 1px; }
 
 /* ==================================================================
+   MODALS: what's new, and the AI prompt
+   ================================================================== */
+
+.wire-whatsnew .wire-wn-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 0; border-bottom: 1px solid var(--background-modifier-border);
+}
+.wire-whatsnew .wire-wn-item:last-of-type { border-bottom: none; }
+.wire-wn-dot {
+  flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; margin-top: 7px;
+  background: var(--interactive-accent);
+}
+.wire-wn-text { font-size: 13.5px; line-height: 1.5; color: var(--text-normal); }
+.wire-wn-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 16px;
+}
+.wire-wn-link { font-size: 12.5px; color: var(--text-muted); }
+.wire-wn-link:hover { color: var(--text-normal); }
+.wire-wn-btn {
+  min-height: 30px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 5px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  transition: transform 80ms ease, opacity 100ms ease;
+}
+.wire-wn-btn:hover { opacity: .9; }
+.wire-wn-btn:active { transform: scale(.97); }
+.wire-wn-btn.wire-busy { opacity: .55; pointer-events: none; }
+
+.wire-ai-hint { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
+.wire-ai-input {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font-family: inherit; font-size: 13.5px; line-height: 1.5;
+}
+.wire-ai-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 12px;
+}
+.wire-ai-status { font-size: 12.5px; color: var(--text-muted); min-height: 18px; }
+
+/* ==================================================================
    REDUCED MOTION
    One block, last, so nothing added later escapes it. Everything above
    animates only transform, opacity and colour, so removing it costs

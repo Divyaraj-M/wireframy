@@ -18,7 +18,8 @@
  */
 
 const obsidian = require('obsidian');
-const { Plugin, PluginSettingTab, Setting, ItemView, TextFileView, FuzzySuggestModal, Notice, Modal, normalizePath } = obsidian;
+const { Plugin, PluginSettingTab, Setting, ItemView, TextFileView, FuzzySuggestModal,
+  Notice, Modal, normalizePath, requestUrl, arrayBufferToBase64 } = obsidian;
 
 const VIEW_PALETTE = 'wireframy-palette';
 
@@ -47,8 +48,50 @@ const DEFAULT_SETTINGS = {
   mastersFolder: 'Wireframes/Masters',
   defaultScreen: 'desktop',
   nodePadding: 24,
-  showFrameLabels: true
+  showFrameLabels: true,
+  /* Empty on a fresh install, which is how "what's new" tells an update from a
+   * first run: nobody wants a changelog before they have used the thing once. */
+  lastSeenVersion: '',
+  helpUrl: 'https://discord.gg/wireframy',
+  ai: { enabled: false, provider: 'anthropic', apiKey: '', model: 'claude-sonnet-4-5' }
 };
+
+/* What each version changed, in the words a user cares about — not the commit
+ * log. Bundled rather than fetched: the plugin makes no network call it does not
+ * have to, and a changelog is not worth one. Newest first. */
+const RELEASE_NOTES = [
+  {
+    version: '1.3.0',
+    lines: [
+      'Ask AI for a screen. Describe it — "settings page with three toggles and a save button" — and it arrives on the board as ordinary elements you can move and edit. Bring your own API key; off until you turn it on.',
+      'Turn a screenshot into a wireframe. Point it at an image in your vault and it comes back as an editable board, not a picture.',
+      'Somewhere to say something is broken. There is a Discord now, and a command that opens it.',
+      'This box. It shows once after an update, and there is a "What\u2019s new" command if you want it again.'
+    ]
+  },
+  {
+    version: '1.2.0',
+    lines: [
+      'A colour palette: six muted hues plus none, as swatches in the inspector or typed as (red).',
+      'Dropped elements are the size they should be. A dialog\u2019s buttons no longer arrive 223px wide, and a container closes under its contents.',
+      'Shapes drop empty, so a rectangle is a rectangle.',
+      'Modifiers work on every widget. Forty of them used to print "(blue)" instead of turning blue.'
+    ]
+  },
+  {
+    version: '1.1.0',
+    lines: [
+      'The editor is usable from the keyboard: every control takes focus, shows a ring, and answers Enter.',
+      'Every secondary label was below the contrast floor. They are readable now.',
+      'Controls are big enough to hit, and the palette eases open instead of appearing in one frame.'
+    ]
+  }
+];
+
+function notesFor(version) {
+  for (const n of RELEASE_NOTES) if (n.version === version) return n;
+  return null;
+}
 
 /* ------------------------------------------------------------------ *
  * Parser
@@ -2586,7 +2629,381 @@ class WireframeSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.nodePadding)
         .setDynamicTooltip()
         .onChange(async (v) => { this.plugin.settings.nodePadding = v; await this.plugin.saveSettings(); this.plugin.applyCssVars(); }));
+
+    /* ---- AI ---- */
+    new Setting(c).setName('AI').setHeading();
+
+    new Setting(c)
+      .setName('Enable AI features')
+      .setDesc('Off by default. When on, two commands become available: describe a screen and have it drawn, or turn a screenshot into an editable wireframe. Nothing is sent anywhere until you run one of them.')
+      .addToggle((t) => t
+        .setValue(!!this.plugin.settings.ai.enabled)
+        .onChange(async (v) => {
+          this.plugin.settings.ai.enabled = v;
+          await this.plugin.saveSettings();
+          this.display();
+        }));
+
+    if (this.plugin.settings.ai.enabled) {
+      new Setting(c)
+        .setName('Provider')
+        .setDesc('Anthropic for now. The screenshot feature needs a model that can read images.')
+        .addDropdown((d) => d
+          .addOption('anthropic', 'Anthropic')
+          .setValue(this.plugin.settings.ai.provider)
+          .onChange(async (v) => { this.plugin.settings.ai.provider = v; await this.plugin.saveSettings(); }));
+
+      new Setting(c)
+        .setName('API key')
+        .setDesc('Your own key. It is stored in this vault, in plain text, in .obsidian/plugins/wireframy/data.json — the same place every Obsidian plugin keeps its settings. If your vault is synced or in git, the key goes with it.')
+        .addText((t) => {
+          t.setPlaceholder('sk-ant-...')
+            .setValue(this.plugin.settings.ai.apiKey)
+            .onChange(async (v) => { this.plugin.settings.ai.apiKey = v.trim(); await this.plugin.saveSettings(); });
+          t.inputEl.type = 'password';
+          t.inputEl.setAttribute('autocomplete', 'off');
+          t.inputEl.setAttribute('spellcheck', 'false');
+          return t;
+        });
+
+      new Setting(c)
+        .setName('Model')
+        .setDesc('Whatever your key has access to.')
+        .addText((t) => t
+          .setPlaceholder(DEFAULT_SETTINGS.ai.model)
+          .setValue(this.plugin.settings.ai.model)
+          .onChange(async (v) => {
+            this.plugin.settings.ai.model = v.trim() || DEFAULT_SETTINGS.ai.model;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(c)
+        .setName('What gets sent')
+        .setDesc('For a described screen: your description only. For a screenshot: that image. Never your notes, never the rest of the vault, and never anything you have not just asked for. Requests go straight to the provider — there is no Wireframy server.');
+    }
+
+    /* ---- help ---- */
+    new Setting(c).setName('Help and feedback').setHeading();
+
+    new Setting(c)
+      .setName('Where to report a problem')
+      .setDesc('An invite link — discord.gg/… — not a channel link. A channel link only opens for people already in the server.')
+      .addText((t) => t
+        .setPlaceholder(DEFAULT_SETTINGS.helpUrl)
+        .setValue(this.plugin.settings.helpUrl)
+        .onChange(async (v) => {
+          this.plugin.settings.helpUrl = v.trim() || DEFAULT_SETTINGS.helpUrl;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(c)
+      .setName('What\u2019s new')
+      .setDesc('The notes for the version you are running.')
+      .addButton((b) => b
+        .setButtonText('Show')
+        .onClick(() => this.plugin.showWhatsNew(true)));
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * AI
+ *
+ * The model's job is deliberately tiny: emit `wf` DSL. It never draws, never
+ * returns coordinates, never touches the document. The DSL already has a
+ * parser, a renderer and 82 widgets behind it, so "make me a settings screen"
+ * becomes a text-generation problem with a schema — which models are good at —
+ * rather than a layout problem, which they are not.
+ *
+ * Nothing reaches the board until parseWf accepts it. A model WILL invent a
+ * widget name eventually, and the failure has to be "here is what it said,
+ * nothing changed" rather than a board full of error boxes.
+ * ------------------------------------------------------------------ */
+
+const AI_MAX_TOKENS = 2000;
+
+function aiWidgetVocabulary() {
+  const names = [];
+  const seen = [];
+  for (const key in WIDGETS) {
+    const def = WIDGETS[key];
+    if (seen.indexOf(def) >= 0) continue;
+    seen.push(def);
+    names.push(def.name);
+  }
+  return names.sort();
+}
+
+/* The prompt is built from the live widget table, so a widget added tomorrow is
+ * available to the model without anyone remembering to update a string. */
+function aiSystemPrompt() {
+  return [
+    'You write wireframes in a small indentation-based DSL. Reply with the DSL only:',
+    'no prose, no explanation, no markdown fences.',
+    '',
+    'Each line is `widget: value`. Two spaces of indentation nests a widget inside the one above.',
+    'Modifiers go in brackets at the end of the value: (primary), (fill), (dashed), (right),',
+    '(center), (muted), (small), (large), and the colours (red), (amber), (green), (blue),',
+    '(violet), (slate).',
+    'Items in a list are separated by | and an asterisk marks the selected one.',
+    'Rows of table data are indented plain lines under the widget.',
+    '',
+    'Example:',
+    'window: Settings | app.example.com/settings',
+    '  h1: Settings',
+    '  card: Notifications',
+    '    toggle: Email me updates',
+    '    toggle: Weekly digest',
+    '  row: (right)',
+    '    btn: Cancel',
+    '    btn: Save (primary)',
+    '',
+    'Available widgets, and nothing else:',
+    aiWidgetVocabulary().join(', '),
+    '',
+    'Keep it to one screen. Prefer a container at the top level. Use real, specific',
+    'label text rather than placeholders, and never use a person\u2019s name.'
+  ].join('\n');
+}
+
+/* Strips the things a model adds even when told not to, then insists the result
+ * actually parses. Returns { dsl } or { error }. */
+function aiParseResponse(raw) {
+  let text = String(raw || '').trim();
+  if (!text) return { error: 'The model returned nothing.' };
+  // fenced code, with or without a language tag
+  const fence = text.match(/```(?:wf|wireframe|text)?\s*\n([\s\S]*?)```/);
+  if (fence) text = fence[1].trim();
+  if (!text) return { error: 'The model returned an empty code block.' };
+
+  const tree = parseWf(text);
+  /* parseWf is forgiving by design: a line naming an unknown widget becomes a
+   * plain data row rather than an error, because that is the right behaviour
+   * for a person typing. It is the wrong behaviour for a model's reply, where
+   * an invented widget name must be caught and reported rather than silently
+   * rendered as a stray line of text. So the check reads the source lines, not
+   * the tree. */
+  const unknown = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || /^(\/\/|#\s)/.test(line)) continue;
+    const m = line.match(/^([a-zA-Z][\w-]*)\s*:\s*(.*)$/);
+    if (!m) continue;                                   // a data row, fine
+    const name = m[1].toLowerCase();
+    if (!WIDGETS[name] && unknown.indexOf(name) < 0) unknown.push(name);
+  }
+  if (unknown.length) {
+    return { error: 'The model used widgets that do not exist: ' + unknown.join(', ') };
+  }
+
+  /* And there has to be at least one real widget. Prose parses happily into a
+   * tree of data rows — "Sure! Here is a wireframe" is a perfectly valid row —
+   * so counting children is not enough. */
+  let widgets = 0;
+  (function walk(node) {
+    for (const c of node.children) {
+      if (c.type !== '_row' && WIDGETS[c.type]) widgets++;
+      walk(c);
+    }
+  })(tree);
+  if (!widgets) return { error: 'Nothing in the reply parsed as a wireframe.' };
+
+  return { dsl: text };
+}
+
+async function aiRequest(settings, userBlocks) {
+  const key = String(settings.ai.apiKey || '').trim();
+  if (!key) throw new Error('No API key. Add one in Settings \u2192 Wireframy \u2192 AI.');
+  const res = await requestUrl({
+    url: 'https://api.anthropic.com/v1/messages',
+    method: 'POST',
+    contentType: 'application/json',
+    headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01'
+    },
+    /* throw: false so a 401 comes back as a status rather than an exception
+     * whose message might carry the request — and therefore the key — with it */
+    throw: false,
+    body: JSON.stringify({
+      model: settings.ai.model || DEFAULT_SETTINGS.ai.model,
+      max_tokens: AI_MAX_TOKENS,
+      system: aiSystemPrompt(),
+      messages: [{ role: 'user', content: userBlocks }]
+    })
+  });
+  if (res.status === 401) throw new Error('The provider rejected that API key.');
+  if (res.status === 429) throw new Error('Rate limited by the provider. Try again shortly.');
+  if (res.status >= 400) {
+    let detail = '';
+    try { detail = res.json && res.json.error ? ': ' + res.json.error.message : ''; } catch (e) { /* noop */ }
+    throw new Error('The provider returned ' + res.status + detail);
+  }
+  const body = res.json || {};
+  const parts = Array.isArray(body.content) ? body.content : [];
+  const text = parts.filter(function (p) { return p && p.type === 'text'; })
+    .map(function (p) { return p.text; }).join('');
+  return text;
+}
+
+/* Asks for a description, then puts the result on the board. */
+class AiScreenModal extends Modal {
+  constructor(app, plugin, view) {
+    super(app);
+    this.plugin = plugin;
+    this.view = view;
+  }
+  onOpen() {
+    this.titleEl.setText('Describe a screen');
+    const c = this.contentEl;
+    c.addClass('wire-ai-modal');
+    c.createDiv({
+      cls: 'wire-ai-hint',
+      text: 'Only what you type here is sent. It comes back as ordinary elements you can move and edit.'
+    });
+    const ta = c.createEl('textarea', { cls: 'wire-ai-input' });
+    ta.setAttribute('rows', '4');
+    ta.setAttribute('placeholder', 'A settings page with three toggles, a folder picker and a save button');
+    const foot = c.createDiv({ cls: 'wire-ai-foot' });
+    this.statusEl = foot.createDiv({ cls: 'wire-ai-status' });
+    const go = foot.createDiv({ cls: 'wire-wn-btn', text: 'Draw it' });
+    go.setAttribute('role', 'button');
+    go.setAttribute('tabindex', '0');
+    const run = async () => {
+      const want = ta.value.trim();
+      if (!want) { this.statusEl.setText('Say what you want first.'); return; }
+      go.addClass('wire-busy');
+      this.statusEl.setText('Asking\u2026');
+      try {
+        const raw = await aiRequest(this.plugin.settings, [{ type: 'text', text: want }]);
+        const out = aiParseResponse(raw);
+        if (out.error) { this.statusEl.setText(out.error); go.removeClass('wire-busy'); return; }
+        this.view.insertDsl(out.dsl);
+        this.close();
+      } catch (e) {
+        this.statusEl.setText(e && e.message ? e.message : 'That did not work.');
+        go.removeClass('wire-busy');
+      }
+    };
+    go.addEventListener('click', run);
+    go.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) { evt.preventDefault(); run(); }
+    });
+    ta.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) { evt.preventDefault(); run(); }
+    });
+    window.setTimeout(() => ta.focus(), 0);
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+/* Picks an image already in the vault and asks the model to read it. Only that
+ * one image leaves the machine — nothing else in the vault is touched. */
+class AiShotModal extends FuzzySuggestModal {
+  constructor(app, plugin, view) {
+    super(app);
+    this.plugin = plugin;
+    this.view = view;
+    this.setPlaceholder('Pick a screenshot to turn into a wireframe\u2026');
+    this.setInstructions([
+      { command: '\u21b5', purpose: 'send this image and draw the result' },
+      { command: 'esc', purpose: 'cancel' }
+    ]);
+  }
+  getItems() {
+    const ok = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+    /* The masters picker reads one folder; this one has to look wider because a
+     * screenshot could be anywhere. It reads paths and extensions only. */
+    const files = [];
+    const walk = (folder) => {
+      const kids = folder && Array.isArray(folder.children) ? folder.children : [];
+      for (const f of kids) {
+        if (Array.isArray(f.children)) walk(f);
+        else if (f.extension && ok.indexOf(String(f.extension).toLowerCase()) >= 0) files.push(f);
+      }
+    };
+    walk(this.app.vault.getRoot());
+    files.sort((a, b) => (b.stat && a.stat ? b.stat.mtime - a.stat.mtime : 0));
+    return files.slice(0, 300);      // newest first; nobody scrolls past 300
+  }
+  getItemText(f) { return f.path; }
+  async onChooseItem(file) {
+    const notice = new Notice('Reading the screenshot\u2026', 0);
+    try {
+      const buf = await this.app.vault.readBinary(file);
+      const MAX = 4 * 1024 * 1024;
+      if (buf.byteLength > MAX) {
+        notice.hide();
+        new Notice('That image is ' + Math.round(buf.byteLength / 1048576) +
+          'MB. Provider limit is about 4MB \u2014 shrink it first.', 8000);
+        return;
+      }
+      const ext = String(file.extension || '').toLowerCase();
+      const media = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+        : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
+      notice.setMessage('Reading the screen\u2026');
+      const raw = await aiRequest(this.plugin.settings, [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: media, data: arrayBufferToBase64(buf) }
+        },
+        {
+          type: 'text',
+          text: 'Redraw this screen as a wireframe in the DSL. Keep the layout and the real ' +
+                'label text you can read. Do not invent content that is not visible.'
+        }
+      ]);
+      const out = aiParseResponse(raw);
+      notice.hide();
+      if (out.error) { new Notice(out.error, 8000); return; }
+      this.view.insertDsl(out.dsl);
+    } catch (e) {
+      notice.hide();
+      new Notice(e && e.message ? e.message : 'That did not work.', 8000);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * What's new
+ *
+ * Shown once after an update, never on a fresh install, and reachable from a
+ * command if someone dismissed it and wants it back. A plugin that opens a
+ * modal every launch is a plugin people disable, so this is gated on the
+ * version actually having changed.
+ * ------------------------------------------------------------------ */
+
+class WhatsNewModal extends Modal {
+  constructor(app, plugin, note) {
+    super(app);
+    this.plugin = plugin;
+    this.note = note;
+  }
+  onOpen() {
+    this.titleEl.setText('Wireframy ' + this.note.version);
+    const c = this.contentEl;
+    c.addClass('wire-whatsnew');
+    for (const line of this.note.lines) {
+      const row = c.createDiv({ cls: 'wire-wn-item' });
+      row.createDiv({ cls: 'wire-wn-dot' });
+      row.createDiv({ cls: 'wire-wn-text', text: line });
+    }
+    const foot = c.createDiv({ cls: 'wire-wn-foot' });
+    const help = foot.createEl('a', { cls: 'wire-wn-link', text: 'Something broken? Say so' });
+    help.setAttribute('href', this.plugin.settings.helpUrl);
+    help.setAttribute('target', '_blank');
+    help.setAttribute('rel', 'noopener');
+    const done = foot.createDiv({ cls: 'wire-wn-btn', text: 'Got it' });
+    done.setAttribute('role', 'button');
+    done.setAttribute('tabindex', '0');
+    const close = () => this.close();
+    done.addEventListener('click', close);
+    done.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      close();
+    });
+  }
+  onClose() { this.contentEl.empty(); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -3173,6 +3590,34 @@ function elementsFromDef(def, startId, x, y) {
 /* Kept for the single-element case and for tests. */
 function elementFromDef(def, id, x, y) {
   return elementsFromDef(def, id, x, y)[0];
+}
+
+/* Any DSL, not just a widget's own snippet: this is what turns a model's reply
+ * into board elements. Same layout pass as a palette drop, so an AI-drawn
+ * screen is indistinguishable from a hand-built one — and just as editable. */
+function elementsFromDsl(dsl, startId, x, y) {
+  const tree = parseWf(dsl);
+  const out = [];
+  let id = startId;
+  let top = y;
+  for (const node of tree.children) {
+    if (node.type === '_row' || !WIDGETS[node.type]) continue;
+    const def = WIDGETS[node.type];
+    const info = splitMods(node.value);
+    const root = normaliseElement({
+      id: id++, type: def.name,
+      x: Math.round(x), y: Math.round(top),
+      w: def.size[0], h: def.size[1],
+      value: info.text,
+      rows: node.children.filter(function (c) { return c.type === '_row'; })
+                         .map(function (c) { return c.value; }).join('\n'),
+      mods: info.mods
+    });
+    out.push(root);
+    id = layoutChildren(node, root, out, id);
+    top = root.y + root.h + 40;      // stacked, so two screens do not overlap
+  }
+  return out;
 }
 
 /* ---------- connector geometry ---------- *
@@ -4399,6 +4844,34 @@ class WireEditorView extends TextFileView {
     return made;
   }
 
+  /* Whatever the AI produced, dropped in as ordinary elements: one undo step,
+   * placed clear of anything already on the board rather than on top of it,
+   * and selected so the first thing you can do is move it. */
+  insertDsl(dsl) {
+    const bounds = boardBounds(this.doc);
+    const r = this.stageEl.getBoundingClientRect();
+    const v = this.doc.view;
+    const x = this.doc.elements.length
+      ? bounds.x + bounds.w + 80
+      : this.snap((0 - v.x) / v.zoom + 60);
+    const y = this.doc.elements.length
+      ? bounds.y
+      : this.snap((0 - v.y) / v.zoom + 60);
+    const group = elementsFromDsl(dsl, this.doc.nextId, this.snap(x), this.snap(y));
+    if (!group.length) {
+      new Notice('Nothing in that reply could be placed on the board.');
+      return null;
+    }
+    for (const elm of group) this.doc.elements.push(elm);
+    this.doc.nextId += group.length;
+    this.sel = [group[0].id];
+    this.commit();
+    this.zoomToFit();
+    new Notice('Added ' + group.length + ' element' + (group.length === 1 ? '' : 's') + '.');
+    void r;
+    return group[0];
+  }
+
   /* One commit, so placing the icon and naming it is a single undo step. */
   placeIconAtCentre(name) {
     const def = WIDGETS['icon'];
@@ -5555,6 +6028,18 @@ class WireframyPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: 'whats-new',
+      name: 'What\u2019s new',
+      callback: () => this.showWhatsNew(true)
+    });
+
+    this.addCommand({
+      id: 'get-help',
+      name: 'Report a problem or ask for help',
+      callback: () => this.openHelp()
+    });
+
+    this.addCommand({
       id: 'quick-add',
       name: 'Quick add widget',
       callback: () => new QuickAddModal(this.app, this).open()
@@ -5615,6 +6100,15 @@ class WireframyPlugin extends Plugin {
 
     this.installDropHandlers();
     this.addSettingTab(new WireframeSettingTab(this.app, this));
+
+    /* Deferred to onLayoutReady: opening a modal while the workspace is still
+     * building fights whatever the user was actually doing, and a plugin that
+     * greets you before the app has drawn is a plugin you turn off. The version
+     * is marked seen either way, so it appears once and only once. */
+    this.app.workspace.onLayoutReady(() => {
+      this.showWhatsNew(false);
+      this.markVersionSeen();
+    });
   }
 
   onunload() {
@@ -5681,6 +6175,58 @@ class WireframyPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /* force=true is the command and the settings button: show it whatever the
+   * stored version says. Otherwise it appears only when the version has
+   * changed AND this is not a first run. */
+  showWhatsNew(force) {
+    const version = this.manifest && this.manifest.version ? this.manifest.version : '';
+    const note = notesFor(version);
+    if (!note) {
+      if (force) new Notice('No release notes for ' + (version || 'this version') + '.');
+      return;
+    }
+    if (!force) {
+      const seen = this.settings.lastSeenVersion;
+      if (!seen || seen === version) return;      // fresh install, or already seen
+    }
+    new WhatsNewModal(this.app, this, note).open();
+  }
+
+  async markVersionSeen() {
+    const version = this.manifest && this.manifest.version ? this.manifest.version : '';
+    if (!version || this.settings.lastSeenVersion === version) return;
+    this.settings.lastSeenVersion = version;
+    await this.saveSettings();
+  }
+
+  requireAi() {
+    if (!this.settings.ai.enabled) {
+      new Notice('AI is off. Turn it on in Settings \u2192 Wireframy \u2192 AI.', 6000);
+      return false;
+    }
+    if (!String(this.settings.ai.apiKey || '').trim()) {
+      new Notice('No API key yet. Add one in Settings \u2192 Wireframy \u2192 AI.', 6000);
+      return false;
+    }
+    return true;
+  }
+
+  openHelp() {
+    const url = String(this.settings.helpUrl || '').trim();
+    if (!/^https:\/\//.test(url)) {
+      new Notice('No help link set. Add one in Settings \u2192 Wireframy.');
+      return;
+    }
+    /* A channel link only opens for people already in the server, which makes
+     * it useless as the thing you hand a stranger. Worth saying once rather
+     * than letting them wonder why nothing happened. */
+    if (/discord\.com\/channels\//.test(url)) {
+      new Notice('That Discord link is a channel, not an invite \u2014 it will not let anyone in. ' +
+        'Use a discord.gg/\u2026 invite instead.', 8000);
+    }
+    window.open(url, '_blank');
   }
 
   applyCssVars() {
@@ -6011,6 +6557,18 @@ class WireframyPlugin extends Plugin {
       (v) => v.setLocked(!v.locked));
     this.wireCommand('wire-alternative', 'Wireframe: create an alternate version',
       (v) => { this.duplicateAsAlternative(v); });
+
+    /* Both AI commands refuse politely rather than silently when the feature is
+     * off or unconfigured: a command that appears to do nothing is worse than
+     * one that says why. */
+    this.wireCommand('wire-ai-screen', 'Wireframe: describe a screen for AI to draw', (v) => {
+      if (!this.requireAi()) return;
+      new AiScreenModal(this.app, this, v).open();
+    });
+    this.wireCommand('wire-ai-screenshot', 'Wireframe: turn a screenshot into a wireframe', (v) => {
+      if (!this.requireAi()) return;
+      new AiShotModal(this.app, this, v).open();
+    });
     this.wireCommand('wire-notes', 'Wireframe: write board notes',
       (v) => { this.openBoardNotes(v); });
     this.wireCommand('wire-cycle-skin', 'Wireframe: cycle skin', (v) => {
@@ -6217,6 +6775,11 @@ module.exports.__internals = {
   linkGeometry: linkGeometry,
   bezierAt: bezierAt,
   bezierPath: bezierPath,
+  aiParseResponse: aiParseResponse,
+  aiSystemPrompt: aiSystemPrompt,
+  elementsFromDsl: elementsFromDsl,
+  notesFor: notesFor,
+  RELEASE_NOTES: RELEASE_NOTES,
   WF_COLOURS: WF_COLOURS,
   coloursFor: coloursFor,
   naturalWidth: naturalWidth,
