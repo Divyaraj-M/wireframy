@@ -70,13 +70,24 @@ const DEFAULT_SETTINGS = {
    * first run: nobody wants a changelog before they have used the thing once. */
   lastSeenVersion: '',
   helpUrl: 'https://discord.gg/wZgjp2B987',
-  ai: { enabled: false, provider: 'anthropic', apiKey: '', model: 'claude-sonnet-4-5' }
+  /* model is deliberately empty: it means "this provider's default", so
+   * switching provider does not leave the other one's model behind. */
+  ai: { enabled: false, provider: 'anthropic', apiKey: '', model: '' }
 };
 
 /* What each version changed, in the words a user cares about — not the commit
  * log. Bundled rather than fetched: the plugin makes no network call it does not
  * have to, and a changelog is not worth one. Newest first. */
 const RELEASE_NOTES = [
+  {
+    version: '1.5.0',
+    lines: [
+      'A genie. There is a lamp in the corner of every board: attach a screenshot, ask what is wrong with it, and get an answer. If the answer contains a wireframe there is a button that adds it.',
+      'It adds, and only adds. The genie has no way to move, change or delete anything already on your board — if you do not like what arrives, delete it.',
+      'Everything stays in your vault. Each board gets a plain markdown transcript beside it, and the screenshots you attach go in a folder next to that. The transcript renders the wireframes it proposed.',
+      'Gemini, as well as Claude. Pick either in Settings → Wireframy → AI; the model box can stay empty and you get that provider\u2019s default.'
+    ]
+  },
   {
     version: '1.4.0',
     lines: [
@@ -527,10 +538,24 @@ const ICON_SPECS = {
   'square':        'r 4.5 4.5 15 15 1.5',
   'circle':        'c 12 12 8.5',
   'triangle':      'g 12,3.5 21,20 3,20',
-  'anchor':        'c 12 5 2.5; l 12 7.5 12 21; l 7 12 17 12; d M3.5 15a8.5 8.5 0 0 0 17 0'
+  'anchor':        'c 12 5 2.5; l 12 7.5 12 21; l 7 12 17 12; d M3.5 15a8.5 8.5 0 0 0 17 0',
+
+  /* A genie lamp, drawn here because Lucide has none: body, spout on the left,
+   * handle loop on the right, and a curl of smoke with two sparks. Reviewed at
+   * 14, 16, 20 and 28px on both grounds — the smoke is what stops it reading
+   * as a teapot, and the two sparks are what stop the smoke reading as a
+   * handle. */
+  'genie': 'd M2.8 13.4 C5.4 14 6.5 14.4 7.5 15.1 C8.7 12.8 10.1 11.7 12.1 11.7 ' +
+    'C15.4 11.7 17.5 13.5 17.7 15.9 C17.9 17.9 16.5 19.4 14.4 19.4 L9.5 19.4 ' +
+    'C6.6 19.4 4.6 17.6 4.3 15.4 C4.2 14.6 3.6 13.8 2.8 13.4 Z;' +
+    'd M17.7 15 C20.8 14.6 21.8 17.7 19.1 19.1;' +
+    'd M11.5 11.1 C14.2 8.9 8.9 7.3 11.6 4.6;' +
+    't 15.1 6.2;t 8.3 5.4'
+
 };
 
 const ICON_ALIASES = {
+  'lamp': 'genie', 'genie-lamp': 'genie', 'magic': 'genie', 'wish': 'genie', 'ai': 'genie',
   'sliders': 'settings', 'x': 'close', 'cancel': 'close', 'tick': 'check', 'add': 'plus', 'remove': 'minus',
   'hamburger': 'menu', 'dots': 'more-h', 'kebab': 'more-v', 'gear': 'settings', 'cog': 'settings',
   'left': 'chevron-left', 'right': 'chevron-right', 'up': 'chevron-up', 'down': 'chevron-down',
@@ -2660,7 +2685,15 @@ class PaletteView extends ItemView {
  * ------------------------------------------------------------------ */
 
 class WireframeSettingTab extends PluginSettingTab {
-  constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+    /* SettingTab.icon, since Obsidian 1.11.0 — ignored by older versions. The
+     * settings sidebar is a long alphabetical list of every installed plugin,
+     * and finding a row by reading it is slower than finding it by shape. Same
+     * compass as the ribbon, so the two read as one thing. */
+    this.icon = 'drafting-compass';
+  }
   display() {
     const c = this.containerEl;
     c.empty();
@@ -2706,7 +2739,7 @@ class WireframeSettingTab extends PluginSettingTab {
 
     new Setting(c)
       .setName('Enable AI features')
-      .setDesc('Off by default. When on, two commands become available: describe a screen and have it drawn, or turn a screenshot into an editable wireframe. Nothing is sent anywhere until you run one of them.')
+      .setDesc('Off by default. When on: the genie appears in the corner of every board, and two commands become available \u2014 describe a screen and have it drawn, or turn a screenshot into an editable wireframe. Nothing is sent anywhere until you ask for it.')
       .addToggle((t) => t
         .setValue(!!this.plugin.settings.ai.enabled)
         .onChange(async (v) => {
@@ -2716,19 +2749,29 @@ class WireframeSettingTab extends PluginSettingTab {
         }));
 
     if (this.plugin.settings.ai.enabled) {
+      const provider = aiProvider(this.plugin.settings);
+
       new Setting(c)
         .setName('Provider')
-        .setDesc('Anthropic for now. The screenshot feature needs a model that can read images.')
-        .addDropdown((d) => d
-          .addOption('anthropic', 'Anthropic')
-          .setValue(this.plugin.settings.ai.provider)
-          .onChange(async (v) => { this.plugin.settings.ai.provider = v; await this.plugin.saveSettings(); }));
+        .setDesc('The screenshot and genie features need a model that can read images — both of these can.')
+        .addDropdown((d) => {
+          for (const id of AI_PROVIDER_IDS) d.addOption(id, AI_PROVIDERS[id].label);
+          d.setValue(aiProviderId(this.plugin.settings));
+          /* Re-render, because the key hint, the model placeholder and where to
+           * go for a key all change with the provider. A pane that still says
+           * "sk-ant-…" after you have picked Gemini is a pane that lies. */
+          d.onChange(async (v) => {
+            this.plugin.settings.ai.provider = v;
+            await this.plugin.saveSettings();
+            this.display();
+          });
+        });
 
       new Setting(c)
         .setName('API key')
-        .setDesc('Your own key. It is stored in this vault, in plain text, in .obsidian/plugins/wireframy/data.json — the same place every Obsidian plugin keeps its settings. If your vault is synced or in git, the key goes with it.')
+        .setDesc('Your own key, from ' + provider.keysAt + '. It is stored in this vault, in plain text, in .obsidian/plugins/wireframy/data.json — the same place every Obsidian plugin keeps its settings. If your vault is synced or in git, the key goes with it.')
         .addText((t) => {
-          t.setPlaceholder('sk-ant-...')
+          t.setPlaceholder(provider.keyHint)
             .setValue(this.plugin.settings.ai.apiKey)
             .onChange(async (v) => { this.plugin.settings.ai.apiKey = v.trim(); await this.plugin.saveSettings(); });
           t.inputEl.type = 'password';
@@ -2739,18 +2782,18 @@ class WireframeSettingTab extends PluginSettingTab {
 
       new Setting(c)
         .setName('Model')
-        .setDesc('Whatever your key has access to.')
+        .setDesc('Leave it empty for ' + provider.defaultModel + '. Letters, digits, dots and dashes only.')
         .addText((t) => t
-          .setPlaceholder(DEFAULT_SETTINGS.ai.model)
+          .setPlaceholder(provider.defaultModel)
           .setValue(this.plugin.settings.ai.model)
           .onChange(async (v) => {
-            this.plugin.settings.ai.model = v.trim() || DEFAULT_SETTINGS.ai.model;
+            this.plugin.settings.ai.model = v.trim();
             await this.plugin.saveSettings();
           }));
 
       new Setting(c)
         .setName('What gets sent')
-        .setDesc('For a described screen: your description only. For a screenshot: that image. Never your notes, never the rest of the vault, and never anything you have not just asked for. Requests go straight to the provider — there is no Wireframy server.');
+        .setDesc('For a described screen: your description only. For a screenshot or a genie question: that image and what you typed. Never your notes, never the rest of the vault, and never anything you have not just asked for. Requests go straight to ' + provider.host + ' — there is no Wireframy server.');
     }
 
     /* ---- help ---- */
@@ -2838,15 +2881,14 @@ function aiSystemPrompt() {
 
 /* Strips the things a model adds even when told not to, then insists the result
  * actually parses. Returns { dsl } or { error }. */
-function aiParseResponse(raw) {
-  let text = String(raw || '').trim();
-  if (!text) return { error: 'The model returned nothing.' };
-  // fenced code, with or without a language tag
-  const fence = text.match(/```(?:wf|wireframe|text)?\s*\n([\s\S]*?)```/);
-  if (fence) text = fence[1].trim();
-  if (!text) return { error: 'The model returned an empty code block.' };
+/* The one place DSL from a model is checked. Both the DSL-only commands and
+ * the chat go through it, because "is this safe to put on a board" must have
+ * exactly one answer. */
+function aiValidateDsl(text) {
+  const src = String(text == null ? '' : text).trim();
+  if (!src) return { error: 'The model returned nothing.' };
 
-  const tree = parseWf(text);
+  const tree = parseWf(src);
   /* parseWf is forgiving by design: a line naming an unknown widget becomes a
    * plain data row rather than an error, because that is the right behaviour
    * for a person typing. It is the wrong behaviour for a model's reply, where
@@ -2854,7 +2896,7 @@ function aiParseResponse(raw) {
    * rendered as a stray line of text. So the check reads the source lines, not
    * the tree. */
   const unknown = [];
-  for (const raw of text.split('\n')) {
+  for (const raw of src.split('\n')) {
     const line = raw.trim();
     if (!line || /^(\/\/|#\s)/.test(line)) continue;
     const m = line.match(/^([a-zA-Z][\w-]*)\s*:\s*(.*)$/);
@@ -2878,45 +2920,907 @@ function aiParseResponse(raw) {
   })(tree);
   if (!widgets) return { error: 'Nothing in the reply parsed as a wireframe.' };
 
-  return { dsl: text };
+  return { dsl: src };
 }
 
-async function aiRequest(settings, userBlocks) {
+/* The DSL-only path: the whole reply is meant to be DSL, so a fence is
+ * stripped and whatever is left has to validate. */
+function aiParseResponse(raw) {
+  let text = String(raw || '').trim();
+  if (!text) return { error: 'The model returned nothing.' };
+  // fenced code, with or without a language tag
+  const fence = text.match(/```(?:wf|wireframe|text)?\s*\n([\s\S]*?)```/);
+  if (fence) text = fence[1].trim();
+  if (!text) return { error: 'The model returned an empty code block.' };
+  return aiValidateDsl(text);
+}
+
+/* The chat path: a reply is prose and MAY carry one fenced wireframe. Prose
+ * with no fence is a perfectly good answer — "that is a settings screen" needs
+ * nothing drawn — so a missing fence is not an error here, unlike above. */
+function aiParseChatReply(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return { prose: '', dsl: null, error: 'The model returned nothing.' };
+
+  const fences = [];
+  const re = /```[ \t]*(?:wf|wireframe)?[ \t]*\r?\n([\s\S]*?)```/g;
+  let m;
+  while ((m = re.exec(text))) fences.push({ whole: m[0], body: (m[1] || '').trim() });
+
+  /* Prose is the reply with the fences removed, not the text before the first
+   * one: a model that explains, draws, then adds a caveat would lose the
+   * caveat, and the caveat is often the part worth reading. */
+  let prose = text;
+  for (const f of fences) prose = prose.split(f.whole).join('\n');
+  prose = prose.replace(/\n{3,}/g, '\n\n').trim();
+
+  if (!fences.length) return { prose: prose, dsl: null };
+
+  /* Only the first wireframe is offered. A reply with three of them did not
+   * follow instructions, and quietly concatenating them puts things on the
+   * board that nobody asked for. */
+  const out = aiValidateDsl(fences[0].body);
+  if (out.error) return { prose: prose || fences[0].body, dsl: null, dslError: out.error };
+  return { prose: prose, dsl: out.dsl, extra: fences.length - 1 };
+}
+
+/* ------------------------------------------------------------------ *
+ * Where a chat lives
+ *
+ * Everything the genie touches stays in the vault, beside the board it belongs
+ * to. A board at `Wireframes/Login.wire` gets
+ *
+ *     Wireframes/Login.chat.md     the transcript, as ordinary markdown
+ *     Wireframes/Login.chat/       the images that transcript refers to
+ *
+ * Named after the board so the pairing is obvious in the file explorer, and
+ * plain markdown so it is searchable, linkable and readable by anything —
+ * including in ten years, when this plugin is gone.
+ * ------------------------------------------------------------------ */
+
+/* JPEG and PNG only. Deliberately narrow: these are what a screenshot actually
+ * is, and both providers read them reliably. WebP and GIF are where vision
+ * support gets patchy and a failure looks like the plugin's fault. */
+const CHAT_IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png' };
+const CHAT_IMAGE_EXTS = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
+const CHAT_IMAGE_MAX = 4 * 1024 * 1024;
+
+function chatImageExt(media) {
+  return CHAT_IMAGE_TYPES[String(media == null ? '' : media).trim().toLowerCase()] || null;
+}
+function chatImageMedia(ext) {
+  return CHAT_IMAGE_EXTS[String(ext == null ? '' : ext).trim().toLowerCase().replace(/^\./, '')] || null;
+}
+
+function chatPaths(filePath) {
+  const p = normalizePath(String(filePath == null ? '' : filePath));
+  const slash = p.lastIndexOf('/');
+  const dir = slash >= 0 ? p.slice(0, slash) : '';
+  const name = slash >= 0 ? p.slice(slash + 1) : p;
+  const base = name.replace(/\.[^.]+$/, '') || 'wireframe';
+  const stem = (dir && dir !== '/' ? dir + '/' : '') + base;
+  return {
+    base: base,
+    dir: dir === '/' ? '' : dir,
+    note: normalizePath(stem + '.chat.md'),
+    images: normalizePath(stem + '.chat')
+  };
+}
+
+/* A filename that sorts chronologically and never needs a counter for
+ * different seconds. UTC-free: these are local timestamps because the person
+ * reading the folder is in their own timezone, not in UTC. */
+function chatStamp(date) {
+  const d = date instanceof Date ? date : new Date();
+  const p2 = (n) => (n < 10 ? '0' : '') + n;
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+         '-' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds());
+}
+
+function chatWhen(date) {
+  const d = date instanceof Date ? date : new Date();
+  const p2 = (n) => (n < 10 ? '0' : '') + n;
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+         ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
+
+/* Model output is going into a file the person will open in a markdown reader.
+ * A reply containing ``` would close the wf fence that follows it and turn the
+ * rest of the note into code — so backtick runs are broken up rather than
+ * trusted. Everything else is left as prose: it is their note, and a model
+ * that writes *emphasis* should get emphasis. */
+function chatSafeProse(text) {
+  return String(text == null ? '' : text)
+    .replace(/\r\n?/g, '\n')
+    .replace(/```+/g, function (m) { return '`​'.repeat(m.length); })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function chatNoteHeader(base) {
+  return [
+    '---',
+    'wireframy-chat: true',
+    'board: "[[' + base + ']]"',
+    '---',
+    '',
+    '# Genie — ' + base,
+    '',
+    'Everything asked of the genie about this board, and what came back. Written',
+    'by Wireframy; safe to edit or delete.',
+    ''
+  ].join('\n');
+}
+
+/* One exchange, as markdown. Pure, because the shape of the transcript is
+ * worth asserting and a vault is not worth mocking to do it. The wf block is
+ * a real one: this note renders the proposed wireframe when you open it. */
+function chatEntryMarkdown(entry) {
+  const e = entry || {};
+  const out = ['', '## ' + (e.when || chatWhen()), ''];
+  if (e.image) out.push('![[' + e.image + ']]', '');
+  out.push('**Asked** ' + chatSafeProse(e.question || '(nothing)'), '');
+  const answer = chatSafeProse(e.answer || '');
+  if (answer) out.push(answer, '');
+  if (e.dsl) out.push('```wf', String(e.dsl).replace(/```+/g, ''), '```', '');
+  if (e.error) out.push('> [!warning] ' + chatSafeProse(e.error), '');
+  return out.join('\n');
+}
+
+/* The chat's instructions, deliberately not the DSL-only prompt: there the
+ * model must emit nothing but DSL, here it has to talk. The last rule is the
+ * one that matters — it may propose new things, never edits to what is already
+ * on the board. The board is the person's, and the only button this panel
+ * offers adds. */
+function aiChatSystemPrompt() {
+  return [
+    'You are a wireframing assistant inside Obsidian. You help someone think about',
+    'screens: you look at screenshots they attach, answer questions about layout,',
+    'hierarchy, states and copy, and when they want something drawn you draw it.',
+    '',
+    'Answer in short plain prose. No headings, no bullet lists unless the question',
+    'really is a list. Two or three sentences is usually right. Never open with a',
+    'compliment or a restatement of the question.',
+    '',
+    'When — and only when — they want something on the board, include exactly one',
+    'fenced block tagged wf containing nothing but the DSL below, and put your prose',
+    'outside the fence. If they only asked a question, do not include a fence at all.',
+    '',
+    'The DSL: each line is `widget: value`. Two spaces of indentation nests a widget',
+    'inside the one above. Modifiers go in brackets at the end of the value:',
+    '(primary), (fill), (dashed), (right), (center), (muted), (small), (large), and',
+    'the colours (red), (amber), (green), (blue), (violet), (slate). Items in a list',
+    'are separated by | and an asterisk marks the selected one. Rows of table data',
+    'are indented plain lines under the widget.',
+    '',
+    'Example of a reply that draws something:',
+    'A sign-in screen needs somewhere to recover a password, so that goes under the',
+    'button.',
+    '',
+    '```wf',
+    'card: Sign in',
+    '  input: Email',
+    '  input: Password',
+    '  btn: Sign in (primary)',
+    '  link: Forgot your password?',
+    '```',
+    '',
+    'Available widgets, and nothing else:',
+    aiWidgetVocabulary().join(', '),
+    '',
+    'Never invent a widget name. Never use a real person’s name, a real company or',
+    'a real email address — use example.com and generic labels.',
+    '',
+    'You cannot change, move or delete anything already on the board, and you must',
+    'never claim to have done so. Everything you draw arrives as new elements that',
+    'the person places themselves.'
+  ].join('\n');
+}
+
+/* ------------------------------------------------------------------ *
+ * Providers
+ *
+ * Two of them, and they disagree about everything: the endpoint, where the key
+ * goes, what a message looks like, how an image is attached, and where the
+ * reply text lives. So the rest of the plugin speaks ONE neutral shape —
+ *
+ *     turns:  [{ role: 'user' | 'model', blocks: [...] }]
+ *     blocks: [{ kind: 'text', text } | { kind: 'image', media, data }]
+ *
+ * — and each provider translates it at the last moment. Adding a third
+ * provider is a new entry in this table and nothing else.
+ * ------------------------------------------------------------------ */
+
+const AI_PROVIDERS = {
+  anthropic: {
+    label: 'Anthropic (Claude)',
+    defaultModel: 'claude-sonnet-4-5',
+    keyHint: 'sk-ant-…',
+    keysAt: 'console.anthropic.com → API keys',
+    host: 'https://api.anthropic.com',
+    url: function () { return 'https://api.anthropic.com/v1/messages'; },
+    headers: function (key) {
+      return { 'x-api-key': key, 'anthropic-version': '2023-06-01' };
+    },
+    body: function (model, system, turns) {
+      return {
+        model: model,
+        max_tokens: AI_MAX_TOKENS,
+        system: system,
+        messages: turns.map(function (t) {
+          return {
+            role: t.role === 'model' ? 'assistant' : 'user',
+            content: t.blocks.map(function (b) {
+              if (b.kind === 'image') {
+                return { type: 'image',
+                         source: { type: 'base64', media_type: b.media, data: b.data } };
+              }
+              return { type: 'text', text: b.text };
+            })
+          };
+        })
+      };
+    },
+    read: function (json) {
+      const parts = json && Array.isArray(json.content) ? json.content : [];
+      return parts.filter(function (p) { return p && p.type === 'text'; })
+        .map(function (p) { return p.text; }).join('');
+    },
+    detail: function (json) {
+      return json && json.error && json.error.message ? String(json.error.message) : '';
+    }
+  },
+
+  gemini: {
+    label: 'Google (Gemini)',
+    defaultModel: 'gemini-2.5-flash',
+    keyHint: 'AIza…',
+    keysAt: 'aistudio.google.com → Get API key',
+    host: 'https://generativelanguage.googleapis.com',
+    /* The model goes in the PATH, which is why aiSafeModel exists: a model
+     * string is typed by hand, and '../../../whatever' in a URL path is not a
+     * request anyone meant to make. */
+    url: function (model) {
+      return 'https://generativelanguage.googleapis.com/v1beta/models/' +
+             encodeURIComponent(model) + ':generateContent';
+    },
+    /* Header, never `?key=`. Google's own examples put the key in the query
+     * string, where it lands in proxy logs, history and error reports. */
+    headers: function (key) { return { 'x-goog-api-key': key }; },
+    body: function (model, system, turns) {
+      return {
+        systemInstruction: { parts: [{ text: system }] },
+        contents: turns.map(function (t) {
+          return {
+            role: t.role === 'model' ? 'model' : 'user',
+            parts: t.blocks.map(function (b) {
+              if (b.kind === 'image') {
+                return { inlineData: { mimeType: b.media, data: b.data } };
+              }
+              return { text: b.text };
+            })
+          };
+        }),
+        generationConfig: { maxOutputTokens: AI_MAX_TOKENS }
+      };
+    },
+    read: function (json) {
+      const cands = json && Array.isArray(json.candidates) ? json.candidates : [];
+      const parts = cands.length && cands[0].content && Array.isArray(cands[0].content.parts)
+        ? cands[0].content.parts : [];
+      return parts.filter(function (p) { return p && typeof p.text === 'string'; })
+        .map(function (p) { return p.text; }).join('');
+    },
+    detail: function (json) {
+      return json && json.error && json.error.message ? String(json.error.message) : '';
+    }
+  }
+};
+
+const AI_PROVIDER_IDS = Object.keys(AI_PROVIDERS);
+
+function aiProvider(settings) {
+  const id = settings && settings.ai ? String(settings.ai.provider || '') : '';
+  return AI_PROVIDERS[id] || AI_PROVIDERS.anthropic;
+}
+
+function aiProviderId(settings) {
+  const id = settings && settings.ai ? String(settings.ai.provider || '') : '';
+  return AI_PROVIDERS[id] ? id : 'anthropic';
+}
+
+/* A model name reaches a URL path on Gemini, so it is validated rather than
+ * trusted: it must start alphanumeric and hold nothing but letters, digits,
+ * dots, dashes and underscores. No slashes, no colons, no spaces — '../../..'
+ * in a URL path is not a request anyone meant to make, and a colon would eat
+ * the ':generateContent' suffix. Anything else is refused rather than sent. */
+function aiSafeModel(model) {
+  const m = String(model == null ? '' : model).trim();
+  if (!m) return null;
+  if (m.length > 100) return null;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(m) ? m : null;
+}
+
+function aiModelFor(settings) {
+  const p = aiProvider(settings);
+  const typed = settings && settings.ai ? settings.ai.model : '';
+  return aiSafeModel(typed) || p.defaultModel;
+}
+
+/* One request path, one call site, whichever provider is chosen.
+ *
+ * `turns` is the neutral shape above. `system` lets the caller choose the
+ * instructions — the DSL generator and the chat want very different ones. */
+async function aiRequest(settings, turns, system) {
   const key = String(settings.ai.apiKey || '').trim();
-  if (!key) throw new Error('No API key. Add one in Settings \u2192 Wireframy \u2192 AI.');
+  if (!key) throw new Error('No API key. Add one in Settings → Wireframy → AI.');
+
+  const provider = aiProvider(settings);
+  const model = aiModelFor(settings);
+  if (!aiSafeModel(model)) throw new Error('That model name is not usable. Check it in Settings → Wireframy → AI.');
+
+  const list = Array.isArray(turns) ? turns : [];
+  const shaped = list.map(function (t) {
+    return { role: t.role === 'model' ? 'model' : 'user',
+             blocks: Array.isArray(t.blocks) ? t.blocks : [] };
+  }).filter(function (t) { return t.blocks.length; });
+  if (!shaped.length) throw new Error('Nothing to send.');
+
   const res = await requestUrl({
-    url: 'https://api.anthropic.com/v1/messages',
+    url: provider.url(model),
     method: 'POST',
     contentType: 'application/json',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01'
-    },
+    headers: provider.headers(key),
     /* throw: false so a 401 comes back as a status rather than an exception
      * whose message might carry the request — and therefore the key — with it */
     throw: false,
-    body: JSON.stringify({
-      model: settings.ai.model || DEFAULT_SETTINGS.ai.model,
-      max_tokens: AI_MAX_TOKENS,
-      system: aiSystemPrompt(),
-      messages: [{ role: 'user', content: userBlocks }]
-    })
+    body: JSON.stringify(provider.body(model, system || aiSystemPrompt(), shaped))
   });
-  if (res.status === 401) throw new Error('The provider rejected that API key.');
+
+  if (res.status === 401 || res.status === 403) throw new Error('The provider rejected that API key.');
   if (res.status === 429) throw new Error('Rate limited by the provider. Try again shortly.');
   if (res.status >= 400) {
     let detail = '';
-    try { detail = res.json && res.json.error ? ': ' + res.json.error.message : ''; } catch (e) { /* noop */ }
+    try {
+      const d = provider.detail(res.json);
+      /* A provider echoing the request back in an error must not carry the key
+       * into a Notice, a log or a bug report. */
+      if (d && d.indexOf(key) < 0) detail = ': ' + d;
+    } catch (e) { /* noop */ }
     throw new Error('The provider returned ' + res.status + detail);
   }
-  const body = res.json || {};
-  const parts = Array.isArray(body.content) ? body.content : [];
-  const text = parts.filter(function (p) { return p && p.type === 'text'; })
-    .map(function (p) { return p.text; }).join('');
-  return text;
+  return provider.read(res.json || {});
 }
 
-/* Asks for a description, then puts the result on the board. */
+
+/* ------------------------------------------------------------------ *
+ * The genie
+ *
+ * A lamp in the corner of the board. Rub it and you get a chat: attach a
+ * screenshot, ask a question, and if the answer contains a wireframe there is
+ * a button that ADDS it to the board.
+ *
+ * Adds. Never edits. The genie has no way to move, change or delete anything
+ * already on the board — not as a policy that could be relaxed, but because
+ * the only board-touching call it can make is view.insertDsl(), which appends.
+ * If you do not like what arrives, delete it; what was there before is exactly
+ * as you left it.
+ *
+ * Everything else lives in the vault, next to the board: the transcript as
+ * markdown, the screenshots in a folder beside it.
+ * ------------------------------------------------------------------ */
+
+async function ensureChatFolder(app, path) {
+  const dir = normalizePath(String(path || ''));
+  if (!dir || dir === '/') return;
+  if (app.vault.getAbstractFileByPath(dir)) return;
+  try {
+    await app.vault.createFolder(dir);
+  } catch (e) {
+    /* Two attachments a moment apart both find no folder and both create it;
+     * the loser's error is not a failure. Anything else is. */
+    if (!app.vault.getAbstractFileByPath(dir)) throw e;
+  }
+}
+
+async function saveChatImage(app, paths, media, buf, when) {
+  const ext = chatImageExt(media);
+  if (!ext) throw new Error('Attach a JPEG or a PNG.');
+  if (!buf || !buf.byteLength) throw new Error('That image is empty.');
+  if (buf.byteLength > CHAT_IMAGE_MAX) {
+    throw new Error('That image is ' + Math.round(buf.byteLength / 1048576) +
+      'MB. The limit is 4MB — shrink it first.');
+  }
+  await ensureChatFolder(app, paths.images);
+  const stamp = chatStamp(when);
+  let path = normalizePath(paths.images + '/' + stamp + '.' + ext);
+  /* Two screenshots in the same second is rare and entirely possible. Never
+   * overwrite: an attachment an earlier exchange still links to is not ours
+   * to replace. */
+  for (let n = 2; app.vault.getAbstractFileByPath(path) && n < 100; n++) {
+    path = normalizePath(paths.images + '/' + stamp + '-' + n + '.' + ext);
+  }
+  await app.vault.createBinary(path, buf);
+  return path;
+}
+
+async function appendChatNote(app, paths, entry) {
+  const md = chatEntryMarkdown(entry);
+  const existing = app.vault.getAbstractFileByPath(paths.note);
+  if (existing) { await app.vault.append(existing, md); return paths.note; }
+  if (paths.dir) await ensureChatFolder(app, paths.dir);
+  await app.vault.create(paths.note, chatNoteHeader(paths.base) + md);
+  return paths.note;
+}
+
+/* The picker, for attaching something already in the vault. Narrower than the
+ * screenshot command's: JPEG and PNG only, because those are what the genie
+ * accepts and offering a webp that will be refused is worse than not offering
+ * it. */
+class GeniePickModal extends FuzzySuggestModal {
+  constructor(app, onPick) {
+    super(app);
+    this.onPick = onPick;
+    this.setPlaceholder('Pick a JPEG or PNG from your vault…');
+    this.setInstructions([
+      { command: '↵', purpose: 'attach it' },
+      { command: 'esc', purpose: 'cancel' }
+    ]);
+  }
+  getItems() {
+    const files = [];
+    const walk = (folder) => {
+      const kids = folder && Array.isArray(folder.children) ? folder.children : [];
+      for (const f of kids) {
+        if (Array.isArray(f.children)) walk(f);
+        else if (f.extension && chatImageMedia(f.extension)) files.push(f);
+      }
+    };
+    walk(this.app.vault.getRoot());
+    /* JPEG first, as asked, then PNG — and newest first inside each, because a
+     * screenshot you want is almost always one you just took. */
+    files.sort((a, b) => {
+      const ja = chatImageMedia(a.extension) === 'image/jpeg' ? 0 : 1;
+      const jb = chatImageMedia(b.extension) === 'image/jpeg' ? 0 : 1;
+      if (ja !== jb) return ja - jb;
+      return b.stat && a.stat ? b.stat.mtime - a.stat.mtime : 0;
+    });
+    return files.slice(0, 300);
+  }
+  getItemText(f) { return f.path; }
+  onChooseItem(file) { this.onPick(file); }
+}
+
+class GenieChat {
+  constructor(view) {
+    this.view = view;
+    this.app = view.app;
+    this.plugin = view.plugin;
+    this.turns = [];              // { role, text, image, dsl, dslError, inserted }
+    this.attachment = null;       // { name, media, data, buf }
+    this.busy = false;
+    this.shown = false;
+  }
+
+  /* ---- lifecycle ---- */
+
+  mount(host) {
+    this.launcherEl = host.createDiv({ cls: 'wire-genie-launch' });
+    iconEl(this.launcherEl, 'genie', 22);
+    this.launcherEl.setAttribute('role', 'button');
+    this.launcherEl.setAttribute('tabindex', '0');
+    this.launcherEl.setAttribute('aria-label', 'Ask the genie');
+    this.launcherEl.setAttribute('title', 'Ask the genie about this board');
+    this.launcherEl.addEventListener('click', () => this.toggle());
+    this.launcherEl.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      this.toggle();
+    });
+
+    this.el = host.createDiv({ cls: 'wire-genie' });
+    this.el.hidden = true;
+    this.buildPanel();
+  }
+
+  buildPanel() {
+    const p = this.el;
+    p.empty();
+
+    const head = p.createDiv({ cls: 'wire-gn-head' });
+    iconEl(head, 'genie', 16);
+    head.createDiv({ cls: 'wire-gn-title', text: 'Genie' });
+    this.whoEl = head.createDiv({ cls: 'wire-gn-who' });
+    const close = head.createDiv({ cls: 'wire-gn-close', text: '×' });
+    close.setAttribute('role', 'button');
+    close.setAttribute('tabindex', '0');
+    close.setAttribute('aria-label', 'Close the genie');
+    close.addEventListener('click', () => this.hide());
+    close.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      this.hide();
+    });
+
+    this.logEl = p.createDiv({ cls: 'wire-gn-log' });
+
+    this.chipEl = p.createDiv({ cls: 'wire-gn-chip' });
+    this.chipEl.hidden = true;
+
+    const foot = p.createDiv({ cls: 'wire-gn-foot' });
+    this.inputEl = foot.createEl('textarea', { cls: 'wire-gn-input' });
+    this.inputEl.setAttribute('rows', '2');
+    this.inputEl.setAttribute('placeholder',
+      'Ask about this board, or paste a screenshot…');
+    this.inputEl.setAttribute('aria-label', 'Ask the genie');
+    this.inputEl.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) { evt.preventDefault(); this.send(); }
+      /* Escape closes the panel rather than reaching the board, where it would
+       * clear the selection of something the person cannot even see. */
+      if (evt.key === 'Escape') { evt.preventDefault(); evt.stopPropagation(); this.hide(); }
+    });
+    /* A screenshot in the clipboard is the fastest attachment there is, so it
+     * is one keystroke and no dialog. */
+    this.inputEl.addEventListener('paste', (evt) => this.onPaste(evt));
+
+    const bar = foot.createDiv({ cls: 'wire-gn-bar' });
+    const attach = bar.createDiv({ cls: 'wire-gn-attach', text: 'Attach' });
+    attach.setAttribute('role', 'button');
+    attach.setAttribute('tabindex', '0');
+    attach.setAttribute('title', 'Pick a JPEG or PNG from your vault');
+    const pick = () => new GeniePickModal(this.app, (f) => this.attachVaultFile(f)).open();
+    attach.addEventListener('click', pick);
+    attach.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      pick();
+    });
+
+    this.statusEl = bar.createDiv({ cls: 'wire-gn-status' });
+
+    this.sendEl = bar.createDiv({ cls: 'wire-gn-send', text: 'Ask' });
+    this.sendEl.setAttribute('role', 'button');
+    this.sendEl.setAttribute('tabindex', '0');
+    this.sendEl.setAttribute('title', 'Ask the genie  (⌘↵)');
+    this.sendEl.addEventListener('click', () => this.send());
+    this.sendEl.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      this.send();
+    });
+
+    /* Dropping a file anywhere on the panel attaches it. dragover must be
+     * cancelled or the browser navigates away from the vault to open the
+     * image, which loses the board. */
+    p.addEventListener('dragover', (evt) => {
+      if (!evt.dataTransfer) return;
+      evt.preventDefault();
+      evt.stopPropagation();
+      p.addClass('wire-gn-dropping');
+    });
+    p.addEventListener('dragleave', () => p.removeClass('wire-gn-dropping'));
+    p.addEventListener('drop', (evt) => {
+      p.removeClass('wire-gn-dropping');
+      this.onDrop(evt);
+    });
+
+    this.render();
+  }
+
+  toggle() { if (this.shown) this.hide(); else this.show(); }
+
+  show() {
+    this.shown = true;
+    this.el.hidden = false;
+    this.launcherEl.addClass('wire-gn-lit');
+    this.render();
+    this.inputEl.focus();
+  }
+
+  hide() {
+    this.shown = false;
+    this.el.hidden = true;
+    this.launcherEl.removeClass('wire-gn-lit');
+    if (this.view.stageEl) this.view.stageEl.focus();
+  }
+
+  /* ---- attachments ---- */
+
+  setStatus(text, kind) {
+    if (!this.statusEl) return;
+    this.statusEl.setText(text || '');
+    this.statusEl.removeClass('wire-gn-bad');
+    if (kind === 'bad') this.statusEl.addClass('wire-gn-bad');
+  }
+
+  async attachVaultFile(file) {
+    try {
+      const media = chatImageMedia(file.extension);
+      if (!media) { this.setStatus('That is not a JPEG or a PNG.', 'bad'); return; }
+      const buf = await this.app.vault.readBinary(file);
+      if (buf.byteLength > CHAT_IMAGE_MAX) {
+        this.setStatus('That image is over 4MB.', 'bad');
+        return;
+      }
+      /* Already in the vault, so it is not copied: the transcript links to
+       * where it actually lives. */
+      this.attachment = { name: file.path, media: media, data: arrayBufferToBase64(buf), path: file.path };
+      this.setStatus('');
+      this.renderChip();
+    } catch (e) {
+      this.setStatus(e && e.message ? e.message : 'Could not read that image.', 'bad');
+    }
+  }
+
+  async attachBlob(blob, label) {
+    if (!blob) return;
+    const media = String(blob.type || '').toLowerCase();
+    if (!chatImageExt(media)) {
+      this.setStatus('Attach a JPEG or a PNG.', 'bad');
+      return;
+    }
+    if (blob.size > CHAT_IMAGE_MAX) {
+      this.setStatus('That image is over 4MB.', 'bad');
+      return;
+    }
+    try {
+      const buf = await blob.arrayBuffer();
+      /* Held as bytes and written into the vault only when the question is
+       * actually asked — otherwise a paste you thought better of leaves a file
+       * behind. */
+      this.attachment = { name: label || 'pasted image', media: media,
+                          data: arrayBufferToBase64(buf), buf: buf };
+      this.setStatus('');
+      this.renderChip();
+    } catch (e) {
+      this.setStatus('Could not read that image.', 'bad');
+    }
+  }
+
+  onPaste(evt) {
+    const dt = evt.clipboardData;
+    if (!dt) return;
+    const items = dt.items ? Array.prototype.slice.call(dt.items) : [];
+    for (const it of items) {
+      if (it.kind !== 'file') continue;
+      const f = it.getAsFile();
+      if (!f || String(f.type || '').indexOf('image/') !== 0) continue;
+      evt.preventDefault();      // do not also paste the filename as text
+      this.attachBlob(f, 'pasted screenshot');
+      return;
+    }
+  }
+
+  onDrop(evt) {
+    const dt = evt.dataTransfer;
+    if (!dt) return;
+    const files = dt.files ? Array.prototype.slice.call(dt.files) : [];
+    const img = files.filter(function (f) { return String(f.type || '').indexOf('image/') === 0; })[0];
+    if (!img) return;
+    evt.preventDefault();
+    evt.stopPropagation();
+    this.attachBlob(img, img.name || 'dropped image');
+  }
+
+  clearAttachment() {
+    this.attachment = null;
+    this.renderChip();
+  }
+
+  renderChip() {
+    const c = this.chipEl;
+    if (!c) return;
+    c.empty();
+    if (!this.attachment) { c.hidden = true; return; }
+    c.hidden = false;
+    iconEl(c, 'image', 13);
+    c.createSpan({ cls: 'wire-gn-chip-name', text: this.attachment.name });
+    const x = c.createSpan({ cls: 'wire-gn-chip-x', text: '×' });
+    x.setAttribute('role', 'button');
+    x.setAttribute('tabindex', '0');
+    x.setAttribute('aria-label', 'Remove the attachment');
+    x.addEventListener('click', () => this.clearAttachment());
+    x.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      this.clearAttachment();
+    });
+  }
+
+  /* ---- the exchange ---- */
+
+  async send() {
+    if (this.busy) return;
+    const question = String(this.inputEl.value || '').trim();
+    if (!question && !this.attachment) {
+      this.setStatus('Ask something, or attach a screenshot.', 'bad');
+      return;
+    }
+    if (!this.plugin || typeof this.plugin.requireAi !== 'function' || !this.plugin.requireAi()) return;
+
+    const attachment = this.attachment;
+    const asked = question || 'What is this screen, and what would you change?';
+
+    this.turns.push({ role: 'user', text: asked, image: attachment });
+    this.inputEl.value = '';
+    this.attachment = null;
+    this.renderChip();
+    this.busy = true;
+    this.sendEl.addClass('wire-busy');
+    this.setStatus('Thinking…');
+    this.render();
+
+    let reply = null, failed = null;
+    try {
+      reply = aiParseChatReply(await aiRequest(this.plugin.settings, this.wireTurns(), aiChatSystemPrompt()));
+    } catch (e) {
+      failed = e && e.message ? e.message : 'That did not work.';
+    }
+
+    this.busy = false;
+    this.sendEl.removeClass('wire-busy');
+
+    if (failed) {
+      /* The turn carries it, so the status line does not: the same sentence in
+       * two places reads as two problems. */
+      this.setStatus('');
+      this.turns.push({ role: 'model', text: '', error: failed });
+      this.render();
+      return;
+    }
+
+    this.setStatus('');
+    this.turns.push({
+      role: 'model',
+      text: reply.prose || '',
+      dsl: reply.dsl || null,
+      dslError: reply.dslError || reply.error || null,
+      extra: reply.extra || 0
+    });
+    this.render();
+    await this.record(asked, attachment, reply);
+  }
+
+  /* History as provider-neutral turns. Only the newest image is sent: an
+   * image per turn multiplies the bill by the length of the conversation, and
+   * the older ones are already described in the text. */
+  wireTurns() {
+    const out = [];
+    const lastWithImage = (function (turns) {
+      for (let i = turns.length - 1; i >= 0; i--) if (turns[i].image) return i;
+      return -1;
+    })(this.turns);
+
+    for (let i = 0; i < this.turns.length; i++) {
+      const t = this.turns[i];
+      const blocks = [];
+      if (t.role === 'user' && t.image && i === lastWithImage) {
+        blocks.push({ kind: 'image', media: t.image.media, data: t.image.data });
+      }
+      /* Trimmed, because '   ' is truthy: a whitespace-only turn would go out
+       * as a text block with nothing in it, which some providers reject and
+       * none of them can use. */
+      let text = String(t.text || '').trim();
+      if (t.role === 'model' && t.dsl) text = (text ? text + '\n\n' : '') + '```wf\n' + t.dsl + '\n```';
+      if (text) blocks.push({ kind: 'text', text: text });
+      /* A turn with nothing in it is not history. That covers a failed model
+       * turn — no text, no wireframe — and a user turn that was only an
+       * attachment which has since been superseded. Sending an empty turn is
+       * how a provider returns 400 for a conversation that looks fine. */
+      if (blocks.length) out.push({ role: t.role === 'model' ? 'model' : 'user', blocks: blocks });
+    }
+    return out;
+  }
+
+  /* Write the exchange into the vault. Failing to record is worth saying but
+   * not worth losing the answer over, so it never throws into send(). */
+  async record(question, attachment, reply) {
+    const file = this.view.file;
+    if (!file) return;
+    const paths = chatPaths(file.path);
+    const now = new Date();
+    let image = attachment ? attachment.path || null : null;
+    try {
+      if (attachment && !image && attachment.buf) {
+        image = await saveChatImage(this.app, paths, attachment.media, attachment.buf, now);
+      }
+      await appendChatNote(this.app, paths, {
+        when: chatWhen(now),
+        question: question,
+        image: image,
+        answer: reply.prose || '',
+        dsl: reply.dsl || null,
+        error: reply.dslError || null
+      });
+    } catch (e) {
+      this.setStatus('Answered, but could not write the transcript: ' +
+        (e && e.message ? e.message : 'unknown error'), 'bad');
+    }
+  }
+
+  /* ---- painting ---- */
+
+  /* Reads settings that may not be there yet. buildPanel() runs inside the
+   * view's build(), which runs inside setViewData — early enough that assuming
+   * a fully loaded plugin is how a decorative panel takes the whole board down
+   * with it. */
+  providerLabel() {
+    const ai = this.plugin && this.plugin.settings ? this.plugin.settings.ai : null;
+    if (!ai || !ai.enabled) return 'AI is off';
+    if (!String(ai.apiKey || '').trim()) return 'No API key';
+    return aiProvider(this.plugin.settings).label;
+  }
+
+  render() {
+    const log = this.logEl;
+    if (!log) return;
+    log.empty();
+
+    if (this.whoEl) this.whoEl.setText(this.providerLabel());
+
+    if (!this.turns.length) {
+      const e = log.createDiv({ cls: 'wire-gn-empty' });
+      e.createDiv({ cls: 'wire-gn-empty-h', text: 'Ask about a screen' });
+      e.createDiv({ cls: 'wire-gn-empty-p', text:
+        'Paste or drop a screenshot and ask what is wrong with it, or just ask for ' +
+        'something to be drawn. Anything the genie draws arrives as new elements — ' +
+        'it never changes what is already on the board.' });
+      e.createDiv({ cls: 'wire-gn-empty-p', text:
+        'Every exchange is saved as a note beside this board.' });
+      return;
+    }
+
+    for (const t of this.turns) this.renderTurn(log, t);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  renderTurn(log, t) {
+    const row = log.createDiv({ cls: 'wire-gn-turn wire-gn-' + (t.role === 'model' ? 'model' : 'you') });
+    row.createDiv({ cls: 'wire-gn-role', text: t.role === 'model' ? 'Genie' : 'You' });
+
+    if (t.image) {
+      const chip = row.createDiv({ cls: 'wire-gn-att' });
+      iconEl(chip, 'image', 12);
+      chip.createSpan({ text: t.image.name });
+    }
+    if (t.text) row.createDiv({ cls: 'wire-gn-text', text: t.text });
+    if (t.error) row.createDiv({ cls: 'wire-gn-err', text: t.error });
+    if (t.dslError) {
+      row.createDiv({ cls: 'wire-gn-err',
+        text: t.dslError + ' Nothing was put on the board.' });
+    }
+    if (t.extra) {
+      row.createDiv({ cls: 'wire-gn-note',
+        text: 'It sent ' + (t.extra + 1) + ' wireframes; only the first is offered.' });
+    }
+    if (!t.dsl) return;
+
+    const pre = row.createEl('pre', { cls: 'wire-gn-dsl' });
+    pre.createEl('code', { text: t.dsl });
+
+    const act = row.createDiv({ cls: 'wire-gn-act' });
+    const add = act.createDiv({ cls: 'wire-gn-add', text: t.inserted ? 'Added' : 'Add to board' });
+    add.setAttribute('role', 'button');
+    add.setAttribute('tabindex', '0');
+    add.setAttribute('title', 'Add these as new elements. Nothing already on the board changes.');
+    if (t.inserted) add.addClass('wire-gn-done');
+    const go = () => {
+      if (t.inserted) return;
+      /* The ONLY call this panel makes that touches the board, and it appends.
+       * There is no path from here to an existing element. */
+      if (!this.view.insertDsl(t.dsl)) return;
+      t.inserted = true;
+      this.render();
+    };
+    add.addEventListener('click', go);
+    add.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      go();
+    });
+  }
+}
+
 class AiScreenModal extends Modal {
   constructor(app, plugin, view) {
     super(app);
@@ -2945,7 +3849,8 @@ class AiScreenModal extends Modal {
       go.addClass('wire-busy');
       this.statusEl.setText('Asking\u2026');
       try {
-        const raw = await aiRequest(this.plugin.settings, [{ type: 'text', text: want }]);
+        const raw = await aiRequest(this.plugin.settings,
+          [{ role: 'user', blocks: [{ kind: 'text', text: want }] }]);
         const out = aiParseResponse(raw);
         if (out.error) { this.statusEl.setText(out.error); go.removeClass('wire-busy'); return; }
         this.view.insertDsl(out.dsl);
@@ -3012,17 +3917,15 @@ class AiShotModal extends FuzzySuggestModal {
       const media = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
         : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
       notice.setMessage('Reading the screen\u2026');
-      const raw = await aiRequest(this.plugin.settings, [
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: media, data: arrayBufferToBase64(buf) }
-        },
-        {
-          type: 'text',
-          text: 'Redraw this screen as a wireframe in the DSL. Keep the layout and the real ' +
-                'label text you can read. Do not invent content that is not visible.'
-        }
-      ]);
+      const raw = await aiRequest(this.plugin.settings, [{
+        role: 'user',
+        blocks: [
+          { kind: 'image', media: media, data: arrayBufferToBase64(buf) },
+          { kind: 'text',
+            text: 'Redraw this screen as a wireframe in the DSL. Keep the layout and the real ' +
+                  'label text you can read. Do not invent content that is not visible.' }
+        ]
+      }]);
       const out = aiParseResponse(raw);
       notice.hide();
       if (out.error) { new Notice(out.error, 8000); return; }
@@ -4282,6 +5185,20 @@ class WireEditorView extends TextFileView {
     this.marqueeEl = this.stageEl.createDiv({ cls: 'wire-marquee' });
     this.marqueeEl.hidden = true;
     this.inspectorEl = body.createDiv({ cls: 'wire-inspector' });
+
+    /* On the stage, not on .wire-app: the inspector owns the right edge when
+     * it is open, and a lamp underneath it is a lamp nobody can rub.
+     *
+     * In a try, because this runs inside build() which runs inside
+     * setViewData: an accessory that throws here would take the whole board
+     * down with it, and a board that will not open is a far worse bug than a
+     * missing lamp. */
+    try {
+      this.genie = new GenieChat(this);
+      this.genie.mount(this.stageEl);
+    } catch (e) {
+      this.genie = null;
+    }
 
     this.buildToolbar();
     this.buildPalette();
@@ -6228,6 +7145,18 @@ class WireframyPlugin extends Plugin {
 
     this.registerEditorCommands();
 
+    /* Through wireCommand so it is scoped exactly like every other editor
+     * command: absent from the palette unless a wireframe is open. The genie
+     * check is separate because a failed mount leaves it null and a command
+     * that throws is worse than one that is not offered. */
+    this.wireCommand('ask-the-genie', 'Wireframe: ask the genie about this board', (view) => {
+      if (!view.genie) {
+        new Notice('The genie could not start on this board.');
+        return;
+      }
+      view.genie.show();
+    });
+
     this.addCommand({
       id: 'cycle-skin',
       name: 'Cycle skin (sketch / clean / wire)',
@@ -6946,6 +7875,30 @@ module.exports.__internals = {
   STALE_HELP_URLS: STALE_HELP_URLS,
   DEFAULT_SETTINGS: DEFAULT_SETTINGS,
   aiParseResponse: aiParseResponse,
+  aiValidateDsl: aiValidateDsl,
+  aiParseChatReply: aiParseChatReply,
+  aiChatSystemPrompt: aiChatSystemPrompt,
+  chatPaths: chatPaths,
+  chatStamp: chatStamp,
+  chatWhen: chatWhen,
+  chatSafeProse: chatSafeProse,
+  chatNoteHeader: chatNoteHeader,
+  chatEntryMarkdown: chatEntryMarkdown,
+  GenieChat: GenieChat,
+  GeniePickModal: GeniePickModal,
+  saveChatImage: saveChatImage,
+  appendChatNote: appendChatNote,
+  ensureChatFolder: ensureChatFolder,
+  chatImageExt: chatImageExt,
+  chatImageMedia: chatImageMedia,
+  CHAT_IMAGE_MAX: CHAT_IMAGE_MAX,
+  AI_PROVIDERS: AI_PROVIDERS,
+  AI_PROVIDER_IDS: AI_PROVIDER_IDS,
+  aiProvider: aiProvider,
+  aiRequest: aiRequest,
+  aiProviderId: aiProviderId,
+  aiSafeModel: aiSafeModel,
+  aiModelFor: aiModelFor,
   aiSystemPrompt: aiSystemPrompt,
   elementsFromDsl: elementsFromDsl,
   notesFor: notesFor,
@@ -6955,10 +7908,16 @@ module.exports.__internals = {
   WELCOME_STEPS: WELCOME_STEPS,
   WelcomeModal: WelcomeModal,
   WhatsNewModal: WhatsNewModal,
+  WireframeSettingTab: WireframeSettingTab,
   WF_COLOURS: WF_COLOURS,
   coloursFor: coloursFor,
   naturalWidth: naturalWidth,
   ROWS_WIDGETS: ROWS_WIDGETS,
   defTakesRows: defTakesRows,
-  WIRE_CLIP_KIND: WIRE_CLIP_KIND
+  WIRE_CLIP_KIND: WIRE_CLIP_KIND,
+  buildIconSvg: buildIconSvg,
+  emptyDoc: emptyDoc,
+  WireEditorView: WireEditorView,
+  ICON_SPECS: ICON_SPECS,
+  iconEl: iconEl
 };

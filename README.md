@@ -1,8 +1,8 @@
 # Wireframy
 
-Lo-fi wireframing without leaving your vault. A drag-and-drop editor with 82 UI widgets, 160 icons, shapes and text you can put anywhere, connecting arrows and three hand-drawn skins — all in a plain text file that lives next to the note it belongs to.
+Lo-fi wireframing without leaving your vault. A drag-and-drop editor with 82 UI widgets, 161 icons, shapes and text you can put anywhere, connecting arrows and three hand-drawn skins — all in a plain text file that lives next to the note it belongs to.
 
-**82 widgets · 160 icons · transform in place · labelled arrows · presentation mode · no clickable prototyping.**
+**82 widgets · 161 icons · transform in place · labelled arrows · a genie that reads your screenshots · presentation mode · no clickable prototyping.**
 
 ![A tour of Wireframy](docs/tour.gif)
 
@@ -46,7 +46,7 @@ Collapsed, it is a bar of two tabs and a search box floating over the top-left o
 
 **Elements** opens on an **Essentials** tier — the fourteen you reach for constantly — then the full set by group.
 
-**Icons** is all 160 as a grid, searchable by name *or* by one of 70 synonyms (`email` finds `mail`, `gear` finds `settings`), with the name under each one so you know what to type in a `wf` block. Searching Elements for something only the icons have — "camera", "printer" — offers to take you across, keeping what you typed.
+**Icons** is all 161 as a grid, searchable by name *or* by one of 75 synonyms (`email` finds `mail`, `gear` finds `settings`), with the name under each one so you know what to type in a `wf` block. Searching Elements for something only the icons have — "camera", "printer" — offers to take you across, keeping what you typed.
 
 ## Shapes and text
 
@@ -126,7 +126,7 @@ Most have aliases (`button`, `dropdown`, `grid`, `kpi`…), 157 names in all. Ru
 
 ## Icons
 
-The same 160 icons the palette browses are available by name anywhere a `wf` block
+The same 161 icons the palette browses are available by name anywhere a `wf` block
 or a widget takes one:
 
 ```wf
@@ -174,6 +174,7 @@ In the editor — all scoped to an open wireframe, so their bindings stay free e
 - **Wireframe: edit the text of the selection** — what double-clicking does
 - **Wireframe: describe a screen for AI to draw** — needs AI turned on
 - **Wireframe: turn a screenshot into a wireframe** — needs AI turned on
+- **Wireframe: ask the genie about this board** — opens the lamp; needs AI turned on
 
 And plugin-wide: **What's new**, **Report a problem or ask for help**.
 
@@ -206,7 +207,7 @@ It diffs cleanly in git, and anything can read it. That is the point of it livin
 <table>
   <tr>
     <td width="50%"><img src="docs/editor.png" alt="The editor: three screens, labelled arrows and the inspector"></td>
-    <td width="50%"><img src="docs/icons.png" alt="The icon browser: 160 icons in a searchable grid"></td>
+    <td width="50%"><img src="docs/icons.png" alt="The icon browser: 161 icons in a searchable grid"></td>
   </tr>
   <tr>
     <td align="center"><em>The editor</em></td>
@@ -226,18 +227,44 @@ It diffs cleanly in git, and anything can read it. That is the point of it livin
 
 ## AI, if you want it
 
-Off until you turn it on, in Settings → Wireframy → AI. Bring your own API key.
+Off until you turn it on, in Settings → Wireframy → AI. Bring your own API key —
+**Anthropic (Claude)** or **Google (Gemini)**, whichever you already have. Leave the model
+box empty and you get that provider's default; requests go straight to the provider, and
+the key travels in a header, never in a URL.
 
+Three ways to use it:
+
+- **The genie** — the lamp in the bottom-right corner of a board. Paste a screenshot, drop
+  one in, or pick one from your vault, then ask. "What is wrong with this?" gets you an
+  answer. "Draw me a better version" gets you an answer *and* an **Add to board** button.
 - **Describe a screen** — "a settings page with three toggles and a save button" — and it
   arrives on the board as ordinary elements you can move, resize and edit.
 - **Turn a screenshot into a wireframe** — point it at an image in your vault and get back
   an editable board rather than a picture.
 
-The model only ever writes `wf` DSL; it never draws and never touches your file. Nothing
-reaches the board until the parser accepts it, so an invented widget name is reported
-rather than rendered. Only your description, or the one image you picked, is sent — never
-your notes, never the rest of the vault. Requests go straight to the provider; there is no
-Wireframy server.
+**The genie adds. It cannot edit.** There is no path from the chat to an element that is
+already on your board — the only board-touching call the panel can make appends new
+elements. If what arrives is wrong, delete it; what was there before is exactly as you left
+it. This is enforced by the code, not by the prompt, and there is a test that fails if a
+second way to reach the board ever appears.
+
+**Everything stays in your vault.** A board at `Wireframes/Login.wire` gets:
+
+```
+Wireframes/Login.chat.md      the transcript, as plain markdown
+Wireframes/Login.chat/        the screenshots it refers to
+```
+
+The transcript is an ordinary note — searchable, linkable, yours to edit or delete — and
+because the wireframes are stored as `wf` blocks, opening it *renders* what the genie drew.
+Screenshots you paste or drop are written into that folder so the transcript points at a
+real file; a screenshot already in your vault is linked where it lives rather than copied.
+JPEG and PNG only.
+
+The model never draws and never touches your file. Nothing reaches the board until the
+parser accepts it, so an invented widget name is reported rather than rendered. Only your
+question and the one image you attached are sent — never your notes, never the rest of the
+vault, and never anything you have not just asked for. There is no Wireframy server.
 
 Your key is stored in `.obsidian/plugins/wireframy/data.json`, in plain text, like every
 Obsidian plugin's settings. If your vault is synced or in git, the key goes with it.
@@ -257,7 +284,7 @@ issues](https://github.com/Divyaraj-M/wireframy/issues) if you'd rather.
 - **No clickable prototyping.** By design. Static screens and the flow between them.
 - **No nesting in the editor.** Containers are backdrops you place things on. The `wf` DSL *does* nest, and drops the laid-out children for you.
 - **A layout box has no text.** Double-clicking a row, column, well, scroll area, splitter or triangle says so rather than opening an empty field; drop widgets onto them instead.
-- **Icons beyond the 160 built in** fall through to Obsidian's bundled Lucide set, which may not match the hand-drawn skin.
+- **Icons beyond the 161 built in** fall through to Obsidian's bundled Lucide set, which may not match the hand-drawn skin.
 - **Mobile** works, but it is cramped; the editor assumes a pointer.
 
 ## Contributing
@@ -265,7 +292,7 @@ issues](https://github.com/Divyaraj-M/wireframy/issues) if you'd rather.
 Issues and pull requests are welcome. The whole plugin is a single `main.js` with no build step — clone it into `.obsidian/plugins/wireframy/` and reload Obsidian.
 
 ```
-main.js        parser, 82 widgets, 160 icons, the editor
+main.js        parser, 82 widgets, 161 icons, the editor
 styles.css     three skins plus the editor chrome
 manifest.json  the plugin manifest
 ```
@@ -287,4 +314,4 @@ install.
 
 [MIT](LICENSE) © Divyaraj Murugan
 
-Every widget and all 160 icons are drawn from scratch in this repository — no third-party artwork or icon set is bundled.
+Every widget and all 161 icons are drawn from scratch in this repository — no third-party artwork or icon set is bundled.

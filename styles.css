@@ -816,6 +816,13 @@
 .wire-inspector input:focus-visible,
 .wire-inspector textarea:focus-visible,
 .wire-palette input:focus-visible,
+.wire-genie-launch:focus-visible,
+.wire-gn-close:focus-visible,
+.wire-gn-attach:focus-visible,
+.wire-gn-send:focus-visible,
+.wire-gn-add:focus-visible,
+.wire-gn-chip-x:focus-visible,
+.wire-gn-input:focus-visible,
 .wire-wc-join:focus-visible,
 .wire-wc-later:focus-visible,
 .wire-wn-btn:focus-visible,
@@ -1266,6 +1273,181 @@
 .wire-wn-btn:hover { opacity: .9; }
 .wire-wn-btn:active { transform: scale(.97); }
 .wire-wn-btn.wire-busy { opacity: .55; pointer-events: none; }
+
+/* ---- the genie ----------------------------------------------------
+   A lamp bottom-right of the stage, and a panel above it. Both are
+   position:absolute inside .wire-stage, which already has a position, so
+   they scroll and resize with the board rather than with the window. */
+.wire-genie-launch {
+  position: absolute; right: 16px; bottom: 16px; z-index: 6;
+  box-sizing: border-box;
+  width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .28);
+  transition: transform 120ms ease;
+}
+.wire-genie-launch:hover { transform: translateY(-1px); }
+.wire-genie-launch:active { transform: scale(.95); }
+/* Open, not off. The first version swapped the accent for a border colour,
+   which on a light ground read as a disabled button rather than an active
+   one — the panel being open is signalled by a ring, not by draining the
+   colour out of the control that opened it. */
+.wire-genie-launch.wire-gn-lit {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .28), 0 0 0 3px var(--background-modifier-border);
+}
+
+.wire-genie {
+  position: absolute; right: 16px; bottom: 68px; z-index: 7;
+  box-sizing: border-box;
+  width: 370px; max-width: calc(100% - 32px);
+  /* 104 = the 68px it sits above the bottom, plus a 36px margin at the top.
+     Anything tighter and the panel becomes the stage, which defeats the point
+     of a floating panel over a board you are looking at. */
+  max-height: calc(100% - 104px);
+  display: flex; flex-direction: column;
+  border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .3);
+}
+.wire-genie.wire-gn-dropping { border-color: var(--interactive-accent); }
+
+.wire-gn-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px 9px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.wire-gn-title { font-size: 13px; font-weight: 600; color: var(--text-normal); }
+.wire-gn-who {
+  flex: 1; text-align: right;
+  font-size: 11.5px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wire-gn-close {
+  flex: 0 0 auto; box-sizing: border-box;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; cursor: pointer;
+  font-size: 17px; line-height: 1; color: var(--text-muted);
+}
+.wire-gn-close:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
+.wire-gn-log {
+  flex: 1 1 auto; min-height: 80px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px; display: flex; flex-direction: column; gap: 14px;
+}
+
+.wire-gn-empty { display: flex; flex-direction: column; gap: 8px; }
+.wire-gn-empty-h { font-size: 13px; font-weight: 600; color: var(--text-normal); }
+.wire-gn-empty-p { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+
+.wire-gn-turn { display: flex; flex-direction: column; gap: 5px; }
+.wire-gn-role {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.wire-gn-text { font-size: 13px; line-height: 1.5; color: var(--text-normal); white-space: pre-wrap; }
+.wire-gn-you .wire-gn-text {
+  padding: 7px 10px; border-radius: 8px;
+  background: var(--background-secondary);
+}
+.wire-gn-att {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+  max-width: 100%; padding: 3px 7px; border-radius: 6px;
+  font-size: 11.5px; color: var(--text-muted);
+  background: var(--background-secondary);
+  overflow: hidden;
+}
+.wire-gn-att span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wire-gn-err { font-size: 12.5px; line-height: 1.5; color: var(--text-error); }
+.wire-gn-note { font-size: 11.5px; color: var(--text-muted); }
+
+.wire-gn-dsl {
+  margin: 2px 0 0; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  overflow-x: auto; max-height: 190px;
+}
+.wire-gn-dsl code {
+  font-size: 11.5px; line-height: 1.5; white-space: pre;
+  color: var(--text-normal); background: none; padding: 0;
+}
+.wire-gn-act { display: flex; align-items: center; gap: 8px; }
+.wire-gn-add {
+  min-height: 26px; box-sizing: border-box;
+  display: inline-flex; align-items: center;
+  padding: 4px 11px; border-radius: 6px; cursor: pointer;
+  font-size: 12.5px; font-weight: 500;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  transition: transform 90ms ease;
+}
+.wire-gn-add:hover { opacity: .92; }
+.wire-gn-add:active { transform: scale(.97); }
+.wire-gn-add.wire-gn-done {
+  background: var(--background-secondary); color: var(--text-muted);
+  cursor: default; pointer-events: none;
+}
+
+.wire-gn-chip {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 12px; padding: 5px 8px; border-radius: 7px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  font-size: 11.5px; color: var(--text-normal);
+}
+.wire-gn-chip-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wire-gn-chip-x {
+  flex: 0 0 auto; box-sizing: border-box;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 5px; cursor: pointer; font-size: 15px; line-height: 1;
+  color: var(--text-muted);
+}
+.wire-gn-chip-x:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+
+.wire-gn-foot {
+  flex: 0 0 auto;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.wire-gn-input {
+  box-sizing: border-box; width: 100%; resize: vertical;
+  min-height: 52px; max-height: 160px;
+  padding: 7px 9px; border-radius: 7px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary); color: var(--text-normal);
+  font-family: inherit; font-size: 13px; line-height: 1.45;
+}
+.wire-gn-bar { display: flex; align-items: center; gap: 9px; }
+.wire-gn-attach {
+  min-height: 26px; box-sizing: border-box;
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 12.5px; color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+}
+.wire-gn-attach:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.wire-gn-status {
+  flex: 1; min-width: 0;
+  font-size: 11.5px; line-height: 1.4; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.wire-gn-status.wire-gn-bad { color: var(--text-error); }
+.wire-gn-send {
+  min-height: 26px; box-sizing: border-box;
+  display: inline-flex; align-items: center;
+  padding: 4px 13px; border-radius: 6px; cursor: pointer;
+  font-size: 12.5px; font-weight: 500;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  transition: transform 90ms ease;
+}
+.wire-gn-send:hover { opacity: .92; }
+.wire-gn-send:active { transform: scale(.97); }
+.wire-gn-send.wire-busy { opacity: .55; pointer-events: none; }
 
 /* ---- welcome, first run only ---- */
 .wire-welcome .wire-wc-lede {
