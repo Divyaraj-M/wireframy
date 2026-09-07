@@ -43,6 +43,23 @@ const SCREEN_PRESETS = [
   { id: 'modal', label: 'Modal', width: 560, height: 420 }
 ];
 
+/* Help links that were once the default and have since moved. A stored setting
+ * shadows the default forever, so shipping a new URL is not enough on its own:
+ * anyone who ran an earlier build keeps pointing at the old one. Anything a
+ * person actually typed is left alone. */
+const STALE_HELP_URLS = ['https://discord.gg/wireframy', 'https://discord.gg/ZmpmXG5a5'];
+
+/* Returns the URL that should be stored, given what is stored now. A function
+ * rather than a few lines inside loadSettings so the behaviour can be tested:
+ * an assertion that the migration merely *mentions* the stale list passes
+ * happily against a migration that does nothing. */
+function migrateHelpUrl(stored) {
+  const url = String(stored == null ? '' : stored).trim();
+  if (!url) return DEFAULT_SETTINGS.helpUrl;
+  if (STALE_HELP_URLS.indexOf(url) >= 0) return DEFAULT_SETTINGS.helpUrl;
+  return url;                                   // typed by hand: leave it alone
+}
+
 const DEFAULT_SETTINGS = {
   skin: 'sketch',
   mastersFolder: 'Wireframes/Masters',
@@ -52,7 +69,7 @@ const DEFAULT_SETTINGS = {
   /* Empty on a fresh install, which is how "what's new" tells an update from a
    * first run: nobody wants a changelog before they have used the thing once. */
   lastSeenVersion: '',
-  helpUrl: 'https://discord.gg/wireframy',
+  helpUrl: 'https://discord.gg/wZgjp2B987',
   ai: { enabled: false, provider: 'anthropic', apiKey: '', model: 'claude-sonnet-4-5' }
 };
 
@@ -61,12 +78,20 @@ const DEFAULT_SETTINGS = {
  * have to, and a changelog is not worth one. Newest first. */
 const RELEASE_NOTES = [
   {
+    version: '1.4.0',
+    lines: [
+      'The Discord link in 1.3.0 did not work \u2014 it was a placeholder that led nowhere. It works now, and if you ran 1.3.0 you are moved to the working one automatically.',
+      'A hello on a fresh install, pointing at that Discord. It appears once, on a first run only, and never again.',
+      'The buttons in these boxes can be reached with Tab and show a focus ring, which they should have done from the start.'
+    ]
+  },
+  {
     version: '1.3.0',
     lines: [
-      'Ask AI for a screen. Describe it — "settings page with three toggles and a save button" — and it arrives on the board as ordinary elements you can move and edit. Bring your own API key; off until you turn it on.',
+      'Ask AI for a screen. Describe it — “settings page with three toggles and a save button” — and it arrives on the board as ordinary elements you can move and edit. Bring your own API key; off until you turn it on.',
       'Turn a screenshot into a wireframe. Point it at an image in your vault and it comes back as an editable board, not a picture.',
       'Somewhere to say something is broken. There is a Discord now, and a command that opens it.',
-      'This box. It shows once after an update, and there is a "What\u2019s new" command if you want it again.'
+      'This box. It shows once after an update, and there is a \u201cWhat\u2019s new\u201d command if you want it again.'
     ]
   },
   {
@@ -75,7 +100,7 @@ const RELEASE_NOTES = [
       'A colour palette: six muted hues plus none, as swatches in the inspector or typed as (red).',
       'Dropped elements are the size they should be. A dialog\u2019s buttons no longer arrive 223px wide, and a container closes under its contents.',
       'Shapes drop empty, so a rectangle is a rectangle.',
-      'Modifiers work on every widget. Forty of them used to print "(blue)" instead of turning blue.'
+      'Modifiers work on every widget. Forty of them used to print “(blue)” instead of turning blue.'
     ]
   },
   {
@@ -91,6 +116,52 @@ const RELEASE_NOTES = [
 function notesFor(version) {
   for (const n of RELEASE_NOTES) if (n.version === version) return n;
   return null;
+}
+
+/* The first-run greeting. Three steps because it genuinely is a sequence —
+ * open a board, put something on it, find where it lives — so the numbers
+ * carry information rather than decoration. */
+const WELCOME_STEPS = [
+  'Click the compass in the left ribbon to open a board. There is also a \u201cNew wireframe\u201d command.',
+  'Drag elements in from the palette, or type them: `btn: Save` is a button. Double-click anything to edit it.',
+  'A board is a plain text file in your vault. It diffs, it syncs, and it will still open in ten years.'
+];
+
+/* What, if anything, to open when the plugin starts. Three states, and only
+ * two of them are allowed to interrupt anyone:
+ *
+ *   nothing stored     first run  -> say hello, and point at the Discord
+ *   an older version   an update  -> show what changed
+ *   this version       neither    -> say nothing at all
+ *
+ * Pure, and exported, because the previous version of this gate was asserted
+ * by grepping the function body for an `if` — which passed contentedly
+ * against a gutted one. A decision function can be tested for its decisions.
+ */
+/* Backtick spans in the welcome copy become real <code>: a monospace
+ * `btn: Save` reads as something you type, while a backticked one reads as a
+ * typo. Split rather than reach for innerHTML — the copy is ours, but the rule
+ * against innerHTML is not worth a local exception. An odd number of
+ * backticks is not a code span at all, so that text is left exactly as typed.
+ */
+function writeTicked(parent, text) {
+  const str = String(text == null ? '' : text);
+  const parts = str.split('`');
+  if (parts.length % 2 === 0) { parent.createSpan({ text: str }); return parent; }
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i]) continue;
+    if (i % 2) parent.createEl('code', { text: parts[i] });
+    else parent.createSpan({ text: parts[i] });
+  }
+  return parent;
+}
+
+function startupGreeting(stored, version) {
+  const seen = String(stored == null ? '' : stored).trim();
+  if (!seen) return 'welcome';
+  const now = String(version == null ? '' : version).trim();
+  if (!now || seen === now) return 'none';
+  return 'notes';
 }
 
 /* ------------------------------------------------------------------ *
@@ -3001,6 +3072,78 @@ class WhatsNewModal extends Modal {
       if (evt.key !== 'Enter' && evt.key !== ' ') return;
       evt.preventDefault();
       close();
+    });
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+/* ------------------------------------------------------------------ *
+ * Welcome
+ *
+ * Once, on a first run, and never again. It exists for one reason that the
+ * README cannot cover: nobody who installs a plugin knows where to complain
+ * when it breaks, and a bug nobody reports is a bug that stays. So the last
+ * thing on the panel is the invite, and it is the only button with weight.
+ * ------------------------------------------------------------------ */
+
+class WelcomeModal extends Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    this.titleEl.setText('Welcome to Wireframy');
+    const c = this.contentEl;
+    c.addClass('wire-welcome');
+
+    c.createDiv({
+      cls: 'wire-wc-lede',
+      text: 'Sketch a screen the way you would on paper \u2014 rough, fast, and obviously not the real thing. ' +
+            'Drag elements onto a board, or write four lines of text and let it draw itself.'
+    });
+
+    const steps = c.createDiv({ cls: 'wire-wc-steps' });
+    for (let i = 0; i < WELCOME_STEPS.length; i++) {
+      const row = steps.createDiv({ cls: 'wire-wc-step' });
+      row.createDiv({ cls: 'wire-wc-num', text: String(i + 1) });
+      writeTicked(row.createDiv({ cls: 'wire-wc-text' }), WELCOME_STEPS[i]);
+    }
+
+    const box = c.createDiv({ cls: 'wire-wc-invite' });
+    box.createDiv({ cls: 'wire-wc-invite-h', text: 'Come and say something' });
+    box.createDiv({
+      cls: 'wire-wc-invite-p',
+      text: 'Questions, bugs, and half-formed ideas all go in the same place: the Discord. ' +
+            'It is where the feedback lands, and it is the only way I find out that something is broken.'
+    });
+
+    /* Dismiss on the left, primary on the right — the same rhythm as the
+     * what's-new panel, and the conventional place for a confirm. */
+    const foot = c.createDiv({ cls: 'wire-wc-foot' });
+
+    const later = foot.createDiv({ cls: 'wire-wc-later', text: 'Maybe later' });
+    later.setAttribute('role', 'button');
+    later.setAttribute('tabindex', '0');
+    const close = () => this.close();
+    later.addEventListener('click', close);
+    later.addEventListener('keydown', (evt) => {
+      if (evt.key !== 'Enter' && evt.key !== ' ') return;
+      evt.preventDefault();
+      close();
+    });
+
+    /* A real anchor, so it looks and behaves like the link it is, but the
+     * navigation goes through openHelp() — the one place that validates the
+     * URL and says so when it is unusable. Two code paths opening the same
+     * link is two chances to ship a broken one. */
+    const join = foot.createEl('a', { cls: 'wire-wn-btn wire-wc-join', text: 'Join the Discord' });
+    join.setAttribute('href', String(this.plugin.settings.helpUrl || ''));
+    join.setAttribute('target', '_blank');
+    join.setAttribute('rel', 'noopener');
+    join.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      this.plugin.openHelp();
+      this.close();
     });
   }
   onClose() { this.contentEl.empty(); }
@@ -6106,7 +6249,7 @@ class WireframyPlugin extends Plugin {
      * greets you before the app has drawn is a plugin you turn off. The version
      * is marked seen either way, so it appears once and only once. */
     this.app.workspace.onLayoutReady(() => {
-      this.showWhatsNew(false);
+      this.showStartupGreeting();
       this.markVersionSeen();
     });
   }
@@ -6171,31 +6314,55 @@ class WireframyPlugin extends Plugin {
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    /* Nested objects do not survive a shallow Object.assign: a saved file from
+     * before the AI settings existed has no `ai` key, and one saved with an
+     * older shape would be missing whatever was added since. */
+    this.settings.ai = Object.assign({}, DEFAULT_SETTINGS.ai, this.settings.ai || {});
+    /* A stored help URL shadows the default forever, so a moved link has to be
+     * migrated rather than merely re-defaulted. Only URLs this plugin once
+     * shipped are touched; anything typed by hand is left alone. */
+    const migrated = migrateHelpUrl(this.settings.helpUrl);
+    if (migrated !== this.settings.helpUrl) {
+      this.settings.helpUrl = migrated;
+      await this.saveSettings();
+    }
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
   }
 
+  /* At most one panel on startup, and only on the run that earns it: hello on
+   * a first install, what changed after an update, silence otherwise. */
+  showStartupGreeting() {
+    const which = startupGreeting(this.settings.lastSeenVersion, this.version());
+    if (which === 'welcome') {
+      new WelcomeModal(this.app, this).open();
+      return;
+    }
+    if (which === 'notes') this.showWhatsNew(false);
+  }
+
+  version() {
+    return this.manifest && this.manifest.version ? this.manifest.version : '';
+  }
+
   /* force=true is the command and the settings button: show it whatever the
-   * stored version says. Otherwise it appears only when the version has
-   * changed AND this is not a first run. */
+   * stored version says. Otherwise it defers to the same gate startup uses, so
+   * there is one answer to "should this open" rather than two. */
   showWhatsNew(force) {
-    const version = this.manifest && this.manifest.version ? this.manifest.version : '';
+    const version = this.version();
     const note = notesFor(version);
     if (!note) {
       if (force) new Notice('No release notes for ' + (version || 'this version') + '.');
       return;
     }
-    if (!force) {
-      const seen = this.settings.lastSeenVersion;
-      if (!seen || seen === version) return;      // fresh install, or already seen
-    }
+    if (!force && startupGreeting(this.settings.lastSeenVersion, version) !== 'notes') return;
     new WhatsNewModal(this.app, this, note).open();
   }
 
   async markVersionSeen() {
-    const version = this.manifest && this.manifest.version ? this.manifest.version : '';
+    const version = this.version();
     if (!version || this.settings.lastSeenVersion === version) return;
     this.settings.lastSeenVersion = version;
     await this.saveSettings();
@@ -6775,11 +6942,19 @@ module.exports.__internals = {
   linkGeometry: linkGeometry,
   bezierAt: bezierAt,
   bezierPath: bezierPath,
+  migrateHelpUrl: migrateHelpUrl,
+  STALE_HELP_URLS: STALE_HELP_URLS,
+  DEFAULT_SETTINGS: DEFAULT_SETTINGS,
   aiParseResponse: aiParseResponse,
   aiSystemPrompt: aiSystemPrompt,
   elementsFromDsl: elementsFromDsl,
   notesFor: notesFor,
   RELEASE_NOTES: RELEASE_NOTES,
+  startupGreeting: startupGreeting,
+  writeTicked: writeTicked,
+  WELCOME_STEPS: WELCOME_STEPS,
+  WelcomeModal: WelcomeModal,
+  WhatsNewModal: WhatsNewModal,
   WF_COLOURS: WF_COLOURS,
   coloursFor: coloursFor,
   naturalWidth: naturalWidth,

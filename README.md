@@ -172,6 +172,10 @@ In the editor — all scoped to an open wireframe, so their bindings stay free e
 - **Wireframe: lock this board**
 - **Wireframe: connect two elements** — click one element, then the next
 - **Wireframe: edit the text of the selection** — what double-clicking does
+- **Wireframe: describe a screen for AI to draw** — needs AI turned on
+- **Wireframe: turn a screenshot into a wireframe** — needs AI turned on
+
+And plugin-wide: **What's new**, **Report a problem or ask for help**.
 
 Also, all prefixed `Wireframe:` — duplicate selection, copy, cut, paste, delete selection, select all, undo, redo, bring to front, send to back, zoom in, zoom out, zoom to 100%, fit everything, toggle the snap grid, cycle skin.
 
@@ -219,6 +223,34 @@ It diffs cleanly in git, and anything can read it. That is the point of it livin
 </table>
 
 </details>
+
+## AI, if you want it
+
+Off until you turn it on, in Settings → Wireframy → AI. Bring your own API key.
+
+- **Describe a screen** — "a settings page with three toggles and a save button" — and it
+  arrives on the board as ordinary elements you can move, resize and edit.
+- **Turn a screenshot into a wireframe** — point it at an image in your vault and get back
+  an editable board rather than a picture.
+
+The model only ever writes `wf` DSL; it never draws and never touches your file. Nothing
+reaches the board until the parser accepts it, so an invented widget name is reported
+rather than rendered. Only your description, or the one image you picked, is sent — never
+your notes, never the rest of the vault. Requests go straight to the provider; there is no
+Wireframy server.
+
+Your key is stored in `.obsidian/plugins/wireframy/data.json`, in plain text, like every
+Obsidian plugin's settings. If your vault is synced or in git, the key goes with it.
+
+## Help, and telling me it's broken
+
+There's a Discord: **[discord.gg/wZgjp2B987](https://discord.gg/wZgjp2B987)**. It is where
+the feedback goes — questions, bugs, half-formed ideas. Post what broke, what you expected,
+and your Obsidian version. **Report a problem or ask for help** in the command palette
+opens it, and the plugin shows the invite once when you first install it.
+
+Bugs and feature requests are also fine as [GitHub
+issues](https://github.com/Divyaraj-M/wireframy/issues) if you'd rather.
 
 ## Known limits
 

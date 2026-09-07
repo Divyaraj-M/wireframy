@@ -815,7 +815,11 @@
 .wire-ins-close:focus-visible,
 .wire-inspector input:focus-visible,
 .wire-inspector textarea:focus-visible,
-.wire-palette input:focus-visible {
+.wire-palette input:focus-visible,
+.wire-wc-join:focus-visible,
+.wire-wc-later:focus-visible,
+.wire-wn-btn:focus-visible,
+.wire-wn-link:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 2px;
 }
@@ -1262,6 +1266,49 @@
 .wire-wn-btn:hover { opacity: .9; }
 .wire-wn-btn:active { transform: scale(.97); }
 .wire-wn-btn.wire-busy { opacity: .55; pointer-events: none; }
+
+/* ---- welcome, first run only ---- */
+.wire-welcome .wire-wc-lede {
+  font-size: 14px; line-height: 1.55; color: var(--text-normal);
+  margin: 2px 0 16px; max-width: 46em;
+}
+.wire-welcome .wire-wc-steps { display: flex; flex-direction: column; gap: 11px; }
+.wire-welcome .wire-wc-step { display: flex; gap: 11px; align-items: flex-start; }
+.wire-wc-num {
+  flex: 0 0 auto; box-sizing: border-box;
+  width: 21px; height: 21px; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 11.5px; font-variant-numeric: tabular-nums;
+  background: var(--background-modifier-border); color: var(--text-normal);
+}
+.wire-wc-text { font-size: 13.5px; line-height: 1.5; color: var(--text-normal); }
+.wire-wc-text code {
+  font-size: 12.5px; padding: 1px 4px; border-radius: 4px; white-space: nowrap;
+  background: var(--background-modifier-border); color: var(--text-normal);
+}
+.wire-wc-invite {
+  margin-top: 18px; padding: 13px 15px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+.wire-wc-invite-h {
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.wire-wc-invite-p { font-size: 13px; line-height: 1.5; color: var(--text-normal); }
+.wire-wc-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 18px;
+}
+.wire-wc-join { text-decoration: none; }
+.wire-wc-join:hover { text-decoration: none; color: var(--text-on-accent); }
+.wire-wc-later {
+  min-height: 26px; box-sizing: border-box;
+  display: inline-flex; align-items: center;
+  padding: 4px 8px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text-muted);
+}
+.wire-wc-later:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
 
 .wire-ai-hint { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
 .wire-ai-input {
