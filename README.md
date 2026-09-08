@@ -61,6 +61,24 @@ triangle:
 
 `text` (also `textbox`, `label`, `caption`) is free text with no box around it. `(fill)`, `(dashed)`, `(bold)`, `(muted)`, `(small)` and `(large)` change how any of them read.
 
+## Real pictures
+
+A wireframe is lo-fi on purpose, but a logo is not worth drawing by hand. Drop a PNG or a JPEG onto a board, paste one from the clipboard, or drag one out of the file explorer, and it is drawn as itself. **Wireframe: place a picture from the vault** does it from the keyboard, and an image already on the board has a **Choose a picture…** button in the inspector.
+
+```
+img: Login.images/logo.png
+img: brand/icon.png (cover)
+img: 320x180
+```
+
+The last one is still the hatched placeholder, which is what you want while the real thing does not exist yet.
+
+Pictures dropped from outside the vault are written beside the board: a board at `Wireframes/Login.wire` keeps them in `Wireframes/Login.images/`, and the element stores the path relative to the board, so the two move together and the `.wire` file stays a short readable line. A picture already in your vault is pointed at where it is, never copied.
+
+Resizing is the same as for anything else: the handles are free, and the picture is contained inside its box rather than stretched by them, so a logo never comes out squashed. `(stretch)` fills the box exactly and `(cover)` fills it by cropping.
+
+**PNG and JPEG, from your vault, and nothing is downloaded.** `img: https://cdn.example.com/logo.png` is refused rather than fetched. To use a logo from a website: right-click it, Copy image, then paste it onto the board.
+
 ## Arrows
 
 Hover an element's edge, click the nub, then click the element you want to point at. Arrows are cubic curves that follow their elements when you move them.
@@ -93,16 +111,28 @@ The same 82 widgets render from a small indentation-based DSL in a `wf` code blo
 ````
 ```wf
 window: Projects | app.example.com/projects
-  row: (top)
-    sidebar: Dashboard | Projects* | People
-    col: (grow)
-      h1: Projects
-      table:
-        Name | Status | Owner
-        * Website redesign | In progress | Design
-        Mobile app | Done | Engineering
+  row:
+    h3: Projects
+    search: Search projects (fill)
+    avatar: DM
+  row: (fill)
+    sidebar: *Dashboard | Projects | People
+    col: (fill)
+      tabs: *Active | Archived
+      table: (fill)
+        [ ] | * | Name | Owner | Due
+        [x] | * | Website redesign | Design | 12 Mar
+        [ ] |   | Mobile app | Engineering | 19 Mar
 ```
 ````
+
+Three things carry most of the weight there.
+
+`(fill)` means the box is sized by its container rather than by its contents, and which way it grows depends on where it sits: in a row it takes the leftover width, in a column the leftover height. So the search box spans the header, the sidebar keeps the 220px it was designed at, and the table reaches the bottom of the pane.
+
+Everything else is sized from what you wrote. A four-row table is a four-row table, not a 240px guess with a pool of empty paper under the last row, and boxes sitting side by side in a row come out the same height.
+
+A cell holding nothing but `[x]`, `[ ]` or `*` draws a real checkbox or star, and that column narrows to the width of the mark so the columns holding sentences get the room. An asterisk on a list or tab item marks it as selected, at either end.
 
 On an Obsidian Canvas the side panel drops these blocks into nodes, groups act as screen frames and edges as flow arrows. Both modes share one renderer, so a widget can never draw two different ways.
 
@@ -118,7 +148,7 @@ A note containing a `wf` block, embedded as a Canvas file node, is a reusable **
 
 **Action** — button, button group, link, icon, floating action button
 
-**Display** — rectangle, circle / ellipse, triangle, headings, paragraph, greeked text, image, avatar, list, data table, key/value, badge, alert, progress, stat tile, bar chart, pie chart, line chart, tag cloud, sitemap, video player, map, icon row, empty state, spinner, divider, spacer
+**Display** — rectangle, circle / ellipse, triangle, headings, paragraph, greeked text, image (real PNG and JPEG, or a placeholder), avatar, list, data table, key/value, badge, alert, progress, stat tile, bar chart, pie chart, line chart, tag cloud, sitemap, video player, map, icon row, empty state, spinner, divider, spacer
 
 **Annotations** — sticky note, numbered callout, comment bubble, tooltip, curly braces, annotation arrow, redline measurement
 
@@ -285,6 +315,7 @@ issues](https://github.com/Divyaraj-M/wireframy/issues) if you'd rather.
 - **No nesting in the editor.** Containers are backdrops you place things on. The `wf` DSL *does* nest, and drops the laid-out children for you.
 - **A layout box has no text.** Double-clicking a row, column, well, scroll area, splitter or triangle says so rather than opening an empty field; drop widgets onto them instead.
 - **Icons beyond the 161 built in** fall through to Obsidian's bundled Lucide set, which may not match the hand-drawn skin.
+- **Pictures are PNG and JPEG only, and must be in your vault.** No SVG, no WebP, and nothing is fetched from a URL. A picture named in a `wf` block is sized by the layout until it loads, so a wide logo typed by hand may need one drag to sit right; a dropped one arrives at its own size.
 - **Mobile** works, but it is cramped; the editor assumes a pointer.
 
 ## Contributing

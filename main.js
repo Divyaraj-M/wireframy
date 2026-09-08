@@ -80,6 +80,27 @@ const DEFAULT_SETTINGS = {
  * have to, and a changelog is not worth one. Newest first. */
 const RELEASE_NOTES = [
   {
+    version: '1.6.0',
+    lines: [
+      'Real pictures. Drop a PNG or a JPEG onto a board, paste one from the clipboard, or drag one out of the file explorer, and it is drawn as itself \u2014 so a logo or an icon you found is a logo, not a box with a cross through it.',
+      'They live beside the board. A board at Wireframes/Login.wire keeps them in Wireframes/Login.images/, and the .wire file stores a short path rather than a megabyte of base64. Move the two together and nothing breaks. A picture already in your vault is pointed at where it is, never copied.',
+      'Resize them like anything else. The handles are free, and the picture is never squashed by them \u2014 (stretch) fills the box exactly and (cover) crops if you want that instead.',
+      'Exports include them. The board is exported by serialising it, where nothing can fetch a file, so every picture is turned into data first.',
+      'PNG and JPEG, from your vault only. Nothing is downloaded: a URL in an img: is refused rather than fetched. The plugin still makes exactly one kind of network request, the AI call, and only when you ask it something.',
+      'A long button label no longer hangs out of its button. Every button was pinned to 140px wide whatever was written on it.'
+    ]
+  },
+  {
+    version: '1.5.3',
+    lines: [
+      'Boxes are the size of what is in them. A four-row table used to be drawn at the height a twelve-row one would need, so every list, table and nav on a board sat above a pool of empty paper. They are now measured from the rows you wrote.',
+      '(fill) works downwards as well as across. In a row it takes the leftover width, as before; in a column it now takes the leftover height, which is what lets the content pane of a screen reach the bottom of it.',
+      'Two boxes side by side in a row come out the same height. A 220px sidebar next to a taller content column looked like something had gone wrong, because it had.',
+      'A table cell holding nothing but [x], [ ] or * draws a real checkbox or star, and that column narrows to the width of the mark. It is why a subject line used to be ellipsised down to three words while an empty checkbox column took the same share of the table.',
+      'A plain divider draws a hairline. It has been a solid grey bar the width of the board since the day the board shipped: one of my own CSS rules grew the 1px rule to fill its element.'
+    ]
+  },
+  {
     version: '1.5.2',
     lines: [
       'The genie panel was stuck open. A CSS rule of mine overrode the browser\u2019s own way of hiding things, so the panel sat over the bottom-right corner of every board from the moment 1.5.0 shipped, eating clicks meant for the canvas.',
@@ -260,7 +281,7 @@ function splitMods(value) {
   const parts = inner.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
   const known = new RegExp('^(primary|secondary|danger|ghost|disabled|active|selected|' +
     'error|success|warning|muted|right|center|centre|left|grow|fill|bold|small|large|' +
-    'round|flat|dashed|top|middle|bottom|stretch|nowrap|end|' +
+    'round|flat|dashed|top|middle|bottom|stretch|cover|nowrap|end|' +
     WF_COLOURS.join('|') + ')$', 'i');
   const sized = /^(w|h|minw|minh|flex)\s*[:=]\s*(\d+)$/i;
   let recognised = 0;
@@ -294,7 +315,12 @@ function splitItems(value) {
     const ic = t.match(/^(.*\S)\s*:\s*([a-zA-Z][\w-]*)$/);
     if (ic && resolveIconName(ic[2])) { t = ic[1].trim(); icon = ic[2]; }
 
+    /* Either side. A trailing asterisk was the only accepted form, so `tabs:
+     * *Primary | Social` printed a literal asterisk while the same marker
+     * worked elsewhere — and nothing in the docs said which end it went on.
+     * Accepting both is cheaper than teaching everyone the difference. */
     if (t.endsWith('*')) { active = true; t = t.slice(0, -1).trim(); }
+    else if (t.length > 1 && t.startsWith('*')) { active = true; t = t.slice(1).trim(); }
     if (t.endsWith('-') && t.length > 1) { disabled = true; t = t.slice(0, -1).trim(); }
     return { text: t, active: active, disabled: disabled, icon: icon };
   }).filter(function (i) { return i.text.length > 0; });
@@ -329,6 +355,71 @@ function checkState(t) {
   const m = String(t || '').match(/^[\[(]\s*([xXoO*✓]?)\s*[\])]\s*(.*)$/);
   if (!m) return { checked: false, text: String(t || '').trim(), explicit: false };
   return { checked: m[1] !== '', text: m[2].trim(), explicit: true };
+}
+
+/* ---------- Real images ---------- *
+ * An `img:` whose value names a picture in the vault draws the picture; every
+ * other value keeps the hatched placeholder it always drew. That is the whole
+ * feature, and the interesting part is what it refuses.
+ *
+ * Three extensions, and nothing that has a scheme in front of it. The plugin
+ * makes exactly one network request in its whole life — the AI call, from one
+ * call site — and `img: https://…/logo.png` must not quietly become a second
+ * one. A URL is not found in the vault, so it would fall through to the
+ * placeholder anyway; rejecting it by name as well means that stays true even
+ * if the resolver is ever handed something more willing.
+ */
+const IMAGE_EXT = ['png', 'jpg', 'jpeg'];
+
+function imageLinkpath(value) {
+  let t = String(value == null ? '' : value).trim();
+  if (!t) return null;
+  /* People paste Obsidian's own spelling, so accept it. */
+  const wiki = t.match(/^!?\[\[([^\]|]+)(\|[^\]]*)?\]\]$/);
+  if (wiki) t = wiki[1].trim();
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return null;      // http:, data:, file:, app:
+  if (t.indexOf('..') >= 0) return null;                // no climbing out of the vault
+  const ext = t.match(/\.([a-z0-9]+)$/i);
+  if (!ext || IMAGE_EXT.indexOf(ext[1].toLowerCase()) < 0) return null;
+  return t;
+}
+
+/* The renderers cannot reach the vault, so whoever mounts them passes a
+ * resolver down in ctx: linkpath in, displayable URL or null out. No resolver
+ * means no vault — the palette thumbnails, the test harness — and the
+ * placeholder is the honest thing to draw. */
+function imageSource(value, ctx) {
+  const link = imageLinkpath(value);
+  if (!link) return null;
+  const resolve = ctx && typeof ctx.resolveImage === 'function' ? ctx.resolveImage : null;
+  if (!resolve) return null;
+  try {
+    const url = resolve(link);
+    return url ? String(url) : null;
+  } catch (e) {
+    return null;                       // a missing file is a placeholder, not an error
+  }
+}
+
+function imageAlt(value) {
+  const link = imageLinkpath(value);
+  if (!link) return 'image';
+  const base = link.split('/').pop();
+  return base.replace(/\.[a-z0-9]+$/i, '') || 'image';
+}
+
+/* Bound to one note or board, because a bare `logo.png` should mean the one
+ * next to it. getFirstLinkpathDest resolves exactly the way a [[link]] in that
+ * file would, so a short name, a folder-relative path and a full vault path
+ * all land in the same place. */
+function imageResolver(app, sourcePath) {
+  return function (linkpath) {
+    if (!app || !app.metadataCache || !app.vault) return null;
+    const file = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath || '');
+    if (!file) return null;
+    if (IMAGE_EXT.indexOf(String(file.extension || '').toLowerCase()) < 0) return null;
+    return app.vault.getResourcePath(file);
+  };
 }
 
 // "320x180" -> {w:320,h:180}
@@ -1245,14 +1336,36 @@ widget(['lorem', 'greek', 'placeholder-text'], {
 });
 
 widget(['img', 'image'], {
-  group: 'Display', label: 'Image placeholder', size: [320, 200],
+  group: 'Display', label: 'Image', size: [320, 200],
   snippet: 'img: 320x180',
-  render: function (el, node) {
+  render: function (el, node, ctx) {
     const info = splitMods(node.value);
-    const dims = parseDims(info.text);
     const box = el.createDiv({ cls: 'wf-img' });
-    if (dims) { box.style.width = dims.w + 'px'; box.style.height = dims.h + 'px'; box.style.flex = '0 0 auto'; }
     applyStyle(box, info.style);
+
+    const src = imageSource(info.text, ctx);
+    if (src) {
+      /* The box loses its frame and its hatching: a logo with a sketchy
+       * border drawn round it looks like a mistake, not a wireframe. */
+      box.addClass('wf-img-real');
+      /* The linkpath rides along on the element: the exporter has to turn this
+       * picture into a data URI and cannot work backwards from an app:// URL. */
+      const img = box.createEl('img', { cls: 'wf-img-el', attr: {
+        src: src, alt: imageAlt(info.text), 'data-wf-img': imageLinkpath(info.text) || ''
+      } });
+      /* object-fit comes from the wrapper's modifier classes, not from a class
+       * added here. A board element keeps its modifiers in elm.mods and hands
+       * the renderer a value with them already stripped, so reading
+       * info.mods worked from a wf code block and silently did nothing on a
+       * board — where the handles are, and so the only place the choice
+       * actually matters. Contained by default, so dragging a corner never
+       * squashes a logo even though the handles are free; (stretch) fills the
+       * box exactly and (cover) fills it by cropping. */
+      return;
+    }
+
+    const dims = parseDims(info.text);
+    if (dims) { box.style.width = dims.w + 'px'; box.style.height = dims.h + 'px'; box.style.flex = '0 0 auto'; }
     box.createDiv({ cls: 'wf-img-x' });
     const cap = dims ? dims.w + ' × ' + dims.h : (info.text || 'image');
     box.createDiv({ cls: 'wf-img-label', text: cap });
@@ -1301,6 +1414,53 @@ widget(['list', 'ul'], {
   }
 });
 
+/* A cell is not always prose. Every table anyone actually wireframes has a
+ * marker column — a row selector, a starred flag — and typing `[x]` or `*`
+ * into one is the obvious thing to try, so those have to draw the control
+ * rather than print the characters.
+ *
+ * The width matters as much as the glyph. Cells are `flex: 1 1 0`, so a
+ * checkbox column claimed the same share as the subject line and the subject
+ * came out as "Quarterly ..." with everything after it ellipsised. A marker
+ * column takes only the width of its marker instead — and that decision has to
+ * be made per COLUMN, not per cell: when only the two starred rows were tight
+ * and the unstarred ones kept their equal share, every row below them stepped
+ * sideways and the table stopped looking like a grid at all. */
+function markCell(raw) {
+  if (raw === '*' || raw === '★') return { kind: 'star', text: '' };
+  const st = checkState(raw);
+  if (st.explicit) return { kind: 'check', checked: st.checked, text: st.text };
+  return null;
+}
+
+/* Which columns hold nothing but markers. An empty cell votes neither way, so
+ * a star column with three blanks in it is still a star column. */
+function markColumns(rows) {
+  const marks = [], prose = [];
+  for (const cells of rows) {
+    cells.forEach(function (c, i) {
+      if (!c) return;
+      const m = markCell(c);
+      if (m && !m.text) marks[i] = (marks[i] || 0) + 1;
+      else prose[i] = (prose[i] || 0) + 1;
+    });
+  }
+  return marks.map(function (n, i) { return !!n && !prose[i]; });
+}
+
+function tableCell(tr, raw, tight) {
+  const td = tr.createDiv({ cls: 'wf-td' });
+  if (tight) td.addClass('wf-td-tight');
+  const m = markCell(raw);
+  if (!m) { td.setText(raw); return td; }
+  td.addClass('wf-td-mark');
+  if (m.kind === 'star') { iconEl(td, 'star', 13); return td; }
+  const mark = td.createDiv({ cls: 'wf-checkbox' });
+  if (m.checked) { iconEl(mark, 'check', 11); mark.addClass('wf-checked'); }
+  if (m.text) td.createSpan({ text: m.text });
+  return td;
+}
+
 widget(['table', 'grid', 'datagrid'], {
   group: 'Display', label: 'Data table', size: [560, 240],
   snippet: 'table:\n  Name | Status | Owner\n  * Website redesign | In progress | Design\n  Mobile app | Done | Engineering\n  Onboarding flow | Planned | Support',
@@ -1309,16 +1469,26 @@ widget(['table', 'grid', 'datagrid'], {
     const rows = dataRows(node);
     const noHeader = info.mods.indexOf('flat') >= 0;
     const table = el.createDiv({ cls: 'wf-table' });
-    rows.forEach(function (raw, idx) {
+    /* Parsed in full before anything is drawn, because the column widths are a
+     * property of the whole table rather than of one row. */
+    const parsed = rows.map(function (raw, idx) {
       let t = raw.trim();
-      if (/^-{1,3}$/.test(t)) { table.createDiv({ cls: 'wf-tr-sep' }); return; }
+      if (/^-{1,3}$/.test(t)) return { sep: true };
       let selected = false;
-      if (t.startsWith('*')) { selected = true; t = t.slice(1).trim(); }
-      const isHeader = idx === 0 && !noHeader && !selected;
-      const tr = table.createDiv({ cls: 'wf-tr' + (isHeader ? ' wf-th' : '') + (selected ? ' wf-selected' : '') });
-      const cells = t.split('|');
-      cells.forEach(function (c) { tr.createDiv({ cls: 'wf-td', text: c.trim() }); });
+      if (t.startsWith('*') && t.indexOf('|') >= 0) { selected = true; t = t.slice(1).trim(); }
+      return {
+        selected: selected,
+        header: idx === 0 && !noHeader && !selected,
+        cells: t.split('|').map(function (c) { return c.trim(); })
+      };
     });
+    const tight = markColumns(parsed.filter(function (r) { return !r.sep; })
+                                    .map(function (r) { return r.cells; }));
+    for (const r of parsed) {
+      if (r.sep) { table.createDiv({ cls: 'wf-tr-sep' }); continue; }
+      const tr = table.createDiv({ cls: 'wf-tr' + (r.header ? ' wf-th' : '') + (r.selected ? ' wf-selected' : '') });
+      r.cells.forEach(function (c, i) { tableCell(tr, c, !!tight[i]); });
+    }
     if (!rows.length) table.createDiv({ cls: 'wf-tr wf-th' }).createDiv({ cls: 'wf-td', text: 'Column' });
   }
 });
@@ -2019,14 +2189,14 @@ function renderTree(container, parentNode, ctx) {
   }
 }
 
-function renderWireframe(el, source, settings) {
+function renderWireframe(el, source, settings, resolveImage) {
   const tree = parseWf(source);
   const root = el.createDiv({ cls: 'wf-root wf-stack wf-skin-' + (settings && settings.skin ? settings.skin : 'sketch') });
   if (!tree.children.length) {
     root.createDiv({ cls: 'wf-error', text: 'Empty wf block. Try:  btn: Save (primary)' });
     return root;
   }
-  renderTree(root, tree, { settings: settings });
+  renderTree(root, tree, { settings: settings, resolveImage: resolveImage });
   return root;
 }
 
@@ -2912,19 +3082,80 @@ function aiWidgetVocabulary() {
 
 /* The prompt is built from the live widget table, so a widget added tomorrow is
  * available to the model without anyone remembering to update a string. */
+/* The DSL rules both prompts need, in one place. They used to be written out
+ * twice, and the copies had already drifted: neither said which end the
+ * selected-item asterisk goes on, neither said the first table row is the
+ * header, and neither mentioned (fill) — so a model asked for a mail client
+ * produced a row of two equal halves with a 220px sidebar stretched to 413 and
+ * every table cell truncated, and lost its first email to the header row.
+ */
+function aiDslRules() {
+  return [
+    'Each line is `widget: value`. Two spaces of indentation nests a widget inside',
+    'the one above.',
+    '',
+    'Modifiers go in brackets at the end of the value: (primary), (fill), (dashed),',
+    '(right), (center), (muted), (small), (large), and the colours (red), (amber),',
+    '(green), (blue), (violet), (slate).',
+    '',
+    'LAYOUT. `row:` places its children side by side, `col:` stacks them. (fill)',
+    'means "this box is sized by its container, not by its contents", and which',
+    'way it grows depends on where it sits. In a row it takes the leftover WIDTH:',
+    'the children without it keep the width they were designed at, and the one',
+    'with it takes the rest, so a sidebar beside a list is `row:` with `sidebar:`',
+    'and `col: (fill)`. In a column it takes the leftover HEIGHT, so the pane that',
+    'should reach the bottom of the screen is the one you mark.',
+    '',
+    'An app shell is those two together, and it is worth copying exactly:',
+    'screen: Inbox',
+    '  row:',
+    '    h3: Inbox',
+    '    search: Search mail (fill)',
+    '    avatar: US',
+    '  row: (fill)',
+    '    sidebar: *Inbox | Starred | Sent',
+    '    col: (fill)',
+    '      tabs: *Primary | Social',
+    '      table: (fill)',
+    '        [ ] | * | From | Subject | Time',
+    '',
+    'Leave (fill) off and the row splits evenly, which comes out as two half-width',
+    'boxes with a pool of empty paper under each of them.',
+    '',
+    'LISTS AND TABS. Items are separated by | and an asterisk marks the selected',
+    'one, at either end: `tabs: Primary* | Social` and `tabs: *Primary | Social`',
+    'both work. A trailing hyphen disables an item. Every list, table, nav and',
+    'sidebar is sized from the rows you write, so write the real number of rows:',
+    'four is a wireframe, twelve is a screenshot, one is a placeholder.',
+    '',
+    'TABLES. Rows are indented plain lines under the widget, cells separated by |.',
+    'THE FIRST ROW IS THE HEADER: put the column names there, or your first row of',
+    'data becomes the header. Three to five columns, and keep each cell to a few',
+    'words — a table is not a paragraph.',
+    '',
+    'PICTURES. `img: logo.png` draws a real picture, and the path is a file in',
+    'the vault — a logo or an icon the person dropped onto the board. You cannot',
+    'add one: you have never seen their vault and a guessed filename draws an',
+    'empty box. Use `img: 320x180` for a placeholder and let them drop the real',
+    'thing in. If they name a file themselves, use exactly the name they gave.',
+    '',
+    'MARKS. A cell holding nothing but `[x]`, `[ ]` or `*` draws a real checkbox or',
+    'star and the whole column narrows to fit it, which is how a row selector or a',
+    'starred flag is done. That is the only place those characters belong. Never',
+    'spell a control out in prose or in a label, never put `o` or `( )` in running',
+    'text, and keep check:, radio: and toggle: outside the table as widgets of',
+    'their own.'
+  ];
+}
+
 function aiSystemPrompt() {
   return [
     'You write wireframes in a small indentation-based DSL. Reply with the DSL only:',
     'no prose, no explanation, no markdown fences.',
     '',
-    'Each line is `widget: value`. Two spaces of indentation nests a widget inside the one above.',
-    'Modifiers go in brackets at the end of the value: (primary), (fill), (dashed), (right),',
-    '(center), (muted), (small), (large), and the colours (red), (amber), (green), (blue),',
-    '(violet), (slate).',
-    'Items in a list are separated by | and an asterisk marks the selected one.',
-    'Rows of table data are indented plain lines under the widget.',
+  ].concat(aiDslRules()).concat([
     '',
-    'Example:',
+    'Example of a small screen:',
     'window: Settings | app.example.com/settings',
     '  h1: Settings',
     '  card: Notifications',
@@ -2934,12 +3165,27 @@ function aiSystemPrompt() {
     '    btn: Cancel',
     '    btn: Save (primary)',
     '',
+    'Example of an app layout, which is the shape most screens want:',
+    'screen: Mail | app.example.com/mail',
+    '  row:',
+    '    h3: Mail',
+    '    search: Search all mail (fill)',
+    '    avatar: US',
+    '  row: (fill)',
+    '    sidebar: Inbox (12)* | Starred | Sent | Drafts',
+    '    col: (fill)',
+    '      tabs: Primary* | Social | Promotions',
+    '      table: (fill)',
+    '        From | Subject | Received',
+    '        Alex Smith | Quarterly review notes | 10:42',
+    '        Team Updates | Weekly sync summary | Yesterday',
+    '',
     'Available widgets, and nothing else:',
     aiWidgetVocabulary().join(', '),
     '',
     'Keep it to one screen. Prefer a container at the top level. Use real, specific',
     'label text rather than placeholders, and never use a person\u2019s name.'
-  ].join('\n');
+  ]).join('\n');
 }
 
 /* Strips the things a model adds even when told not to, then insists the result
@@ -3149,14 +3395,10 @@ function aiChatSystemPrompt() {
     'fenced block tagged wf containing nothing but the DSL below, and put your prose',
     'outside the fence. If they only asked a question, do not include a fence at all.',
     '',
-    'The DSL: each line is `widget: value`. Two spaces of indentation nests a widget',
-    'inside the one above. Modifiers go in brackets at the end of the value:',
-    '(primary), (fill), (dashed), (right), (center), (muted), (small), (large), and',
-    'the colours (red), (amber), (green), (blue), (violet), (slate). Items in a list',
-    'are separated by | and an asterisk marks the selected one. Rows of table data',
-    'are indented plain lines under the widget.',
+    'The DSL:'
+  ].concat(aiDslRules()).concat([
     '',
-    'Example of a reply that draws something:',
+    'Example of a reply that draws something small:',
     'A sign-in screen needs somewhere to recover a password, so that goes under the',
     'button.',
     '',
@@ -3168,6 +3410,26 @@ function aiChatSystemPrompt() {
     '  link: Forgot your password?',
     '```',
     '',
+    'And a whole app screen, which is the shape most requests want. Note the (fill)',
+    'on the content column, the header row on the table, and that no cell tries to',
+    'draw a checkbox:',
+    '',
+    '```wf',
+    'screen: Mail | app.example.com/mail',
+    '  row:',
+    '    h3: Mail',
+    '    search: Search all mail (fill)',
+    '    avatar: US',
+    '  row: (fill)',
+    '    sidebar: Inbox (12)* | Starred | Sent | Drafts',
+    '    col: (fill)',
+    '      tabs: Primary* | Social | Promotions',
+    '      table: (fill)',
+    '        From | Subject | Received',
+    '        Alex Smith | Quarterly review notes | 10:42',
+    '        Team Updates | Weekly sync summary | Yesterday',
+    '```',
+    '',
     'Available widgets, and nothing else:',
     aiWidgetVocabulary().join(', '),
     '',
@@ -3177,7 +3439,7 @@ function aiChatSystemPrompt() {
     'You cannot change, move or delete anything already on the board, and you must',
     'never claim to have done so. Everything you draw arrives as new elements that',
     'the person places themselves.'
-  ].join('\n');
+  ]).join('\n');
 }
 
 /* ------------------------------------------------------------------ *
@@ -3426,6 +3688,150 @@ async function saveChatImage(app, paths, media, buf, when) {
   return path;
 }
 
+/* ------------------------------------------------------------------ *
+ * Pictures on a board
+ *
+ * Same convention as the genie's screenshots, for the same reason: a board at
+ * `Wireframes/Login.wire` keeps the pictures dropped onto it in
+ * `Wireframes/Login.images/`, and the element stores the path relative to the
+ * board. Move the two together and nothing breaks; the .wire file still holds
+ * a short readable string rather than a megabyte of base64.
+ *
+ * A file already in the vault is referenced where it lies. Copying someone's
+ * existing attachment into a second folder is not a favour.
+ * ------------------------------------------------------------------ */
+
+function boardImageFolder(filePath) {
+  const p = chatPaths(filePath);
+  return normalizePath((p.dir ? p.dir + '/' : '') + p.base + '.images');
+}
+
+/* The value to store on the element: relative to the board's own folder, so
+ * `Wireframes/Login.images/stripe.png` reads as `Login.images/stripe.png`.
+ * Obsidian resolves a link from the file that contains it, which is exactly
+ * what makes the pair movable. */
+function boardImageRef(boardPath, imagePath) {
+  const dir = chatPaths(boardPath).dir;
+  const full = normalizePath(String(imagePath || ''));
+  if (!dir) return full;
+  const prefix = dir + '/';
+  return full.indexOf(prefix) === 0 ? full.slice(prefix.length) : full;
+}
+
+/* Big enough to see, small enough that a 3000px screenshot does not arrive as
+ * a board-sized slab: natural size under the cap, scaled down above it, and
+ * scaled UP if it is smaller than the smallest element a board can hold. One
+ * scale for both axes throughout — clamping width and height separately is how
+ * a 16px favicon came out as a 24x20 rectangle. */
+const IMAGE_BOX_CAP = 480;
+const IMAGE_BOX_MIN = 24;
+
+function imageBoxFor(w, h, max) {
+  const cap = Number(max) > 0 ? Number(max) : IMAGE_BOX_CAP;
+  const W = Math.max(1, Number(w) || 0);
+  const H = Math.max(1, Number(h) || 0);
+  const fit = Math.min(1, cap / Math.max(W, H));
+  const up = IMAGE_BOX_MIN / Math.min(W, H);
+  /* Growing to the floor must not push the long side past the cap; a 3000x10
+   * strip keeps the cap and stays thin rather than becoming 7200px wide. */
+  const scale = up > fit ? Math.min(up, cap / Math.max(W, H)) : fit;
+  return { w: Math.max(1, Math.round(W * scale)), h: Math.max(1, Math.round(H * scale)) };
+}
+
+/* What a drop is carrying, decided without touching the vault so it can be
+ * tested on its own. Files win over text: dragging a picture out of Finder
+ * also sets a text/plain of its filename, and treating that as a vault link
+ * would look for a file that is not there. */
+function imageDropKind(dt) {
+  if (!dt) return null;
+  if (dt.files && dt.files.length) {
+    const pictures = [];
+    for (let i = 0; i < dt.files.length; i++) {
+      const f = dt.files[i];
+      /* Either the browser knows the type or the name ends in one we take.
+       * Some platforms hand over an empty type for a Finder drag. */
+      if (chatImageExt(f && f.type) || imageLinkpath(f && f.name)) pictures.push(f);
+    }
+    /* Something was dragged in and none of it was a picture: worth saying so,
+     * which is why this is not just null. */
+    return pictures.length ? { kind: 'files', files: pictures } : { kind: 'rejected' };
+  }
+  let text = '';
+  try { text = dt.getData ? String(dt.getData('text/plain') || '') : ''; } catch (e) { text = ''; }
+  const link = imageLinkpath(text.trim());
+  return link ? { kind: 'vault', link: link } : null;
+}
+
+/* The image items on a clipboard event, if any. */
+function imagePasteFiles(clipboardData) {
+  const out = [];
+  if (!clipboardData) return out;
+  const items = clipboardData.items;
+  if (items && items.length) {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it && it.kind === 'file' && chatImageExt(it.type)) {
+        const f = it.getAsFile ? it.getAsFile() : null;
+        if (f) out.push(f);
+      }
+    }
+  }
+  if (!out.length && clipboardData.files && clipboardData.files.length) {
+    for (let i = 0; i < clipboardData.files.length; i++) {
+      const f = clipboardData.files[i];
+      if (chatImageExt(f && f.type)) out.push(f);
+    }
+  }
+  return out;
+}
+
+async function saveBoardImage(app, folder, filename, media, buf) {
+  const named = imageLinkpath(filename);
+  const ext = chatImageExt(media) ||
+    (named ? String(named.split('.').pop()).toLowerCase().replace('jpeg', 'jpg') : null);
+  if (!ext) throw new Error('Drop a PNG or a JPEG.');
+  if (!buf || !buf.byteLength) throw new Error('That image is empty.');
+  if (buf.byteLength > CHAT_IMAGE_MAX) {
+    throw new Error('That image is ' + Math.round(buf.byteLength / 1048576) +
+      'MB. The limit is 4MB \u2014 shrink it first.');
+  }
+  await ensureChatFolder(app, folder);
+  /* Keep the name it came with: a logo you can recognise in the file explorer
+   * is worth more than one that sorts chronologically. A clipboard paste has
+   * no name, so it gets a timestamp like the genie's screenshots do. */
+  const stem = named ? String(named.split('/').pop()).replace(/\.[^.]+$/, '') : ('Pasted ' + chatStamp());
+  const name = imageNameFor(stem, (n) => !!app.vault.getAbstractFileByPath(folder + '/' + n), ext);
+  const path = normalizePath(folder + '/' + name);
+  await app.vault.createBinary(path, buf);
+  return path;
+}
+
+/* Natural dimensions, by decoding the bytes the same way the renderer will.
+ * Falls back to the widget's designed size rather than failing the drop: an
+ * image on the board at the wrong size is fixable by dragging a handle, and a
+ * refused drop is not. */
+function imageNaturalSize(bytes, media) {
+  return new Promise(function (resolve) {
+    let url = null;
+    const done = (size) => {
+      if (url) { try { URL.revokeObjectURL(url); } catch (e) { /* noop */ } }
+      resolve(size);
+    };
+    try {
+      const blob = new Blob([bytes], { type: media || 'image/png' });
+      url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => done({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => done(null);
+      /* Neither handler is guaranteed to fire for a file that is not really a
+       * picture, and a drop that hangs forever is worse than one that lands at
+       * the designed size. */
+      window.setTimeout(() => done(null), 4000);
+      img.src = url;
+    } catch (e) { done(null); }
+  });
+}
+
 async function appendChatNote(app, paths, entry) {
   const md = chatEntryMarkdown(entry);
   const existing = app.vault.getAbstractFileByPath(paths.note);
@@ -3440,12 +3846,14 @@ async function appendChatNote(app, paths, entry) {
  * accepts and offering a webp that will be refused is worse than not offering
  * it. */
 class GeniePickModal extends FuzzySuggestModal {
-  constructor(app, onPick) {
+  /* The genie attaches, the board places, and both want the same list of
+   * pictures in the same order. One modal, two verbs. */
+  constructor(app, onPick, verb) {
     super(app);
     this.onPick = onPick;
     this.setPlaceholder('Pick a JPEG or PNG from your vault…');
     this.setInstructions([
-      { command: '↵', purpose: 'attach it' },
+      { command: '↵', purpose: verb || 'attach it' },
       { command: 'esc', purpose: 'cancel' }
     ]);
   }
@@ -4574,7 +4982,7 @@ function elementNode(elm) {
   return tree.children[0] || { type: elm.type, value: '', children: [] };
 }
 
-function renderElementInto(host, elm, skin) {
+function renderElementInto(host, elm, skin, resolveImage) {
   const def = WIDGETS[elm.type];
   const root = host.createDiv({ cls: 'wf-root wf-skin-' + (skin || 'sketch') });
   if (!def) { root.createDiv({ cls: 'wf-error', text: 'unknown widget "' + elm.type + '"' }); return; }
@@ -4594,7 +5002,7 @@ function renderElementInto(host, elm, skin) {
   applyMods(wrap, all);
   node.value = typed.text;
   try {
-    def.render(wrap, node, {});
+    def.render(wrap, node, { resolveImage: resolveImage });
   } catch (e) {
     wrap.empty();
     wrap.createDiv({ cls: 'wf-error', text: '⚠ ' + (e && e.message ? e.message : 'render failed') });
@@ -4687,11 +5095,113 @@ const INTRINSIC = ['badge', 'avatar', 'checkbox', 'check', 'radio', 'toggle', 's
 const FIT_TO_CONTENT = ['modal', 'dialog', 'card', 'panel', 'fieldset', 'well',
   'row', 'hbox', 'col', 'vbox', 'alert', 'note', 'sticky'];
 
-function naturalWidth(type) {
+/* Widgets whose label is drawn as text, and whose designed width is therefore
+ * a floor rather than a limit. `btn: Continue with Google` was pinned to 140px
+ * with the words hanging out both sides of the box. */
+const LABELLED = ['btn', 'btns', 'link'];
+
+/* Measured, not guessed: rendering btn labels of 2, 4, 8, 20 and 31 characters
+ * gives 58, 73, 104, 200 and 278px, which is 7.7px a character on a 43px box.
+ * Rounded up for headroom, and content.test.js re-measures a rendered label
+ * against its box so a font change fails there rather than on a board. */
+function labelWidth(text) {
+  const n = String(text == null ? '' : text).trim().length;
+  if (!n) return 0;
+  return Math.ceil(48 + 7.8 * n);
+}
+
+function naturalWidth(type, text) {
   const def = WIDGETS[type];
   if (!def) return null;
-  if (def.group === 'Action' || INTRINSIC.indexOf(type) >= 0) return def.size[0];
+  if (def.group === 'Action' || INTRINSIC.indexOf(type) >= 0) {
+    /* Wide enough for the words, never narrower than designed. */
+    return LABELLED.indexOf(def.name) >= 0
+      ? Math.max(def.size[0], labelWidth(text))
+      : def.size[0];
+  }
   return null;                       // stretches to the container, as before
+}
+
+/* Widgets whose height is a function of how many rows the author typed. The
+ * designed height is a guess at a typical one — 240px for a table — and a
+ * guess is wrong twice: a four-row table left a pool of empty paper under the
+ * last row, and a twelve-row one had eight rows clipped off. These numbers are
+ * the real rendered geometry: `base` is the chrome (borders, the box's own
+ * padding) and `row` is one row, both measured in a browser. content.test.js
+ * re-measures them and fails if the stylesheet moves, so they cannot quietly
+ * drift out of agreement with the CSS the way a hand-kept table would. */
+const CONTENT_H = {
+  table:     { base: 6,  row: 34, min: 40 },
+  list:      { base: 5,  row: 36, min: 44 },
+  kv:        { base: 2,  row: 32, min: 34 },
+  menu:      { base: 14, row: 31, min: 46 },
+  sidebar:   { base: 24, row: 35, min: 60 },
+  accordion: { base: 5,  row: 38, min: 44 },
+  /* `label: true` marks the widgets whose value is one row's text rather than
+   * a pipe-separated list. `check: I understand` is a single checkbox and was
+   * drawn 100px tall, because a group of them is. */
+  checkbox:  { base: 2,  row: 26, min: 26, label: true },
+  radio:     { base: 2,  row: 26, min: 26, label: true }
+};
+
+/* How many rows this node's height should be derived from, or 0 for "leave the
+ * designed height alone". Two shapes count: rows nested under the widget, and
+ * a pipe-separated value on it. A widget holding other WIDGETS is acting as a
+ * container — a sidebar with a button and a list inside it — so its height
+ * comes from laying those out, not from counting them. */
+function contentRows(node) {
+  const def = WIDGETS[node.type];
+  if (!def || !CONTENT_H[def.name]) return 0;
+  for (const c of node.children) if (c.type !== '_row' && WIDGETS[c.type]) return 0;
+  const rows = node.children.filter(function (c) { return c.type === '_row'; }).length;
+  if (rows) return rows;
+  /* A widget whose value is one row's label draws exactly one row, whatever
+   * the value is — a bare `check:` still renders a single empty box. */
+  if (CONTENT_H[def.name].label) return 1;
+  /* A single item is far more likely to be a placeholder than a one-row nav,
+   * so the pipe-separated form needs at least two before it decides a height.
+   * An empty value gives no items and so decides nothing. */
+  const items = splitItems(splitMods(node.value).text).length;
+  return items > 1 ? items : 0;
+}
+
+function contentHeight(node) {
+  const n = contentRows(node);
+  if (!n) return null;
+  const m = CONTENT_H[WIDGETS[node.type].name];
+  return Math.max(m.min, m.base + m.row * n);
+}
+
+/* One place where a parsed node becomes a board element, so a widget is the
+ * same size wherever it is dropped. It used to be three — a palette drop, a
+ * block of DSL, and a child inside a container — and content sizing landed in
+ * only the third: a table nested in a column hugged its four rows while the
+ * same table pasted on its own kept guessing 240px and left a pool of paper
+ * under the last one. */
+function elementFromNode(node, id, x, y, w, h) {
+  const def = WIDGETS[node.type];
+  const info = splitMods(node.value);
+  const fromRows = contentHeight(node);
+  return {
+    id: id, type: def.name,
+    x: Math.round(x), y: Math.round(y),
+    w: Math.max(24, Math.round(w == null ? def.size[0] : w)),
+    h: Math.max(20, Math.round(fromRows !== null ? fromRows : (h == null ? def.size[1] : h))),
+    value: info.text,
+    rows: node.children.filter(function (c) { return c.type === '_row'; })
+                       .map(function (c) { return c.value; }).join('\n'),
+    mods: info.mods
+  };
+}
+
+/* Does this child want to be as tall as the row it sits in? Boxes do — a
+ * sidebar next to a taller content column looked like a rendering fault, and
+ * every app shell has both running the full height. Leaves do not: an input
+ * beside a 56px avatar should stay an input, not grow to match it. */
+function stretchesInRow(node, elm) {
+  if (node.type === 'sidebar' || node.type === 'sidenav') return true;
+  for (const c of node.children) if (c.type !== '_row' && WIDGETS[c.type]) return true;
+  return false;
 }
 
 /* Lays a container's children out inside it, growing the container when its
@@ -4699,76 +5209,155 @@ function naturalWidth(type) {
  * than with two squashed inputs, and you can resize it afterwards anyway.
  * Recurses depth-first so a nested container is grown before its own height is
  * used to advance the stack. */
-function layoutChildren(parentNode, parentElm, out, nextId) {
+function layoutChildren(parentNode, parentElm, out, nextId, floorH) {
   const kids = parentNode.children.filter(function (c) { return c.type !== '_row' && WIDGETS[c.type]; });
   if (!kids.length) return nextId;
 
   const pad = 16;
   const gap = 10;
-  const top = parentElm.y + chromeInset(parentElm.type, !!parentElm.value);
+  const inset = chromeInset(parentElm.type, !!parentElm.value);
+  const top = parentElm.y + inset;
   const innerX = parentElm.x + pad;
   const innerW = Math.max(40, parentElm.w - pad * 2);
   const horizontal = ROW_CONTAINERS.indexOf(parentElm.type) >= 0;
+  /* floorH is how a container tells a child the height it has already been
+   * given, so the child can lay its own contents out against the final number
+   * and not shrink back below it. Without it the two rules cancel: a `row:
+   * (fill)` grows to fill a screen and then fit-to-content closes it up again
+   * around its header, and the body of every app shell collapses. */
+  const ownH = Math.max(parentElm.h, floorH || 0);
 
   function makeChild(kid, x, y, w, h) {
-    const info = splitMods(kid.value);
-    const nat = naturalWidth(WIDGETS[kid.type].name);
-    // never wider than the widget's own size, and never wider than the space
-    if (nat !== null) w = Math.min(w, nat);
-    return {
-      id: nextId++, type: WIDGETS[kid.type].name,
-      x: Math.round(x), y: Math.round(y),
-      w: Math.max(24, Math.round(w)), h: Math.max(20, Math.round(h)),
-      value: info.text,
-      rows: kid.children.filter(function (c) { return c.type === '_row'; })
-                        .map(function (c) { return c.value; }).join('\n'),
-      mods: info.mods
-    };
+    const mods = splitMods(kid.value).mods;
+    const nat = naturalWidth(WIDGETS[kid.type].name, splitMods(kid.value).text);
+    /* Never wider than the widget's own size, and never wider than the space —
+     * unless it asked to fill, which is a request to ignore its natural width
+     * and take the room. A (fill) button spanning a dialog is a real pattern. */
+    if (nat !== null && mods.indexOf('fill') < 0) w = Math.min(w, nat);
+    return elementFromNode(kid, nextId++, x, y, w, h);
   }
 
+  /* Lays a subtree out into a throwaway array purely to learn how tall it ends
+   * up, so a container can size its children before it commits to placing
+   * them. The scratch elements are discarded; the height it left on `elm` is
+   * the whole point. */
+  function measureTree(kid, elm) {
+    layoutChildren(kid, elm, [], 1);
+    return elm.h;
+  }
+
+  const fills = kids.map(function (k) {
+    return splitMods(k.value).mods.indexOf('fill') >= 0;
+  });
+  const fillCount = fills.filter(Boolean).length;
+
   if (horizontal) {
-    const each = Math.max(40, Math.floor((innerW - gap * (kids.length - 1)) / kids.length));
-    /* Build first, measure, then place. Intrinsic children keep their own width,
-     * so the row usually does not fill — which is what lets a (right) or
-     * (center) row put its buttons where a real dialog puts them. */
-    const built = [];
-    for (const kid of kids) {
-      const def = WIDGETS[kid.type];
-      built.push({ kid: kid, elm: makeChild(kid, innerX, top, each, def.size[1]) });
+    const gaps = gap * (kids.length - 1);
+    /* (fill) decides how a row divides. Without it every child got an equal
+     * share, so `row: sidebar + col (fill)` produced two half-width boxes: a
+     * 220px sidebar stretched to 413 and a table squeezed into 381, which is
+     * why every cell in it came out truncated. With it, the children that did
+     * not ask to fill keep the width their widget was designed at, and what is
+     * left over is split between the ones that did. */
+    let offered;
+    if (!fillCount) {
+      const each = Math.max(40, Math.floor((innerW - gaps) / kids.length));
+      offered = kids.map(function () { return each; });
+    } else {
+      /* A non-filling child is offered its designed width, capped so a row of
+       * wide widgets still fits rather than overflowing the container. */
+      const room = Math.max(40, innerW - gaps);
+      const wanted = kids.map(function (k, i) {
+        if (fills[i]) return 0;
+        const def = WIDGETS[k.type];
+        return Math.max(40, Math.min(def.size[0], Math.round(room / kids.length * 1.6)));
+      });
+      const fixed = wanted.reduce(function (a, b) { return a + b; }, 0);
+      const share = Math.max(80, Math.floor((room - fixed) / fillCount));
+      offered = kids.map(function (k, i) { return fills[i] ? share : wanted[i]; });
     }
+
+    /* Build, measure, then place. Intrinsic children keep their own width, so
+     * the row usually does not fill — which is what lets a (right) or (center)
+     * row put its buttons where a real dialog puts them. Measuring before
+     * placing is what lets the boxes in a row agree on a height: the tallest
+     * one sets it, and the others are laid out again knowing the answer, so a
+     * (fill) inside one of them expands into the extra room instead of leaving
+     * a pool under itself. */
+    const built = [];
+    for (let i = 0; i < kids.length; i++) {
+      const kid = kids[i];
+      const def = WIDGETS[kid.type];
+      const elm = makeChild(kid, innerX, top, offered[i], def.size[1]);
+      built.push({ kid: kid, elm: elm, box: stretchesInRow(kid, elm) });
+    }
+    let tallest = 0;
+    for (const b of built) tallest = Math.max(tallest, measureTree(b.kid, b.elm));
+    /* A row that was told to fill is taller than its contents by design, so
+     * the boxes in it should run its full height rather than sitting at the
+     * top of it with a pool underneath. Only when it was given a floor: a
+     * plain `row:` still closes up around what is in it. */
+    if (floorH) tallest = Math.max(tallest, floorH - inset - pad);
+
     const used = built.reduce(function (n, b) { return n + b.elm.w; }, 0) + gap * (built.length - 1);
     const slack = Math.max(0, innerW - used);
     const mods = splitMods(parentNode.value).mods;
     let x = innerX;
     if (mods.indexOf('right') >= 0 || mods.indexOf('end') >= 0) x += slack;
     else if (mods.indexOf('center') >= 0 || mods.indexOf('centre') >= 0) x += Math.round(slack / 2);
-    let tallest = 0;
     for (const b of built) {
       b.elm.x = Math.round(x);
       out.push(b.elm);
-      nextId = layoutChildren(b.kid, b.elm, out, nextId);
-      tallest = Math.max(tallest, b.elm.h);
+      nextId = layoutChildren(b.kid, b.elm, out, nextId, b.box ? tallest : 0);
+      if (b.box) b.elm.h = Math.max(b.elm.h, tallest);
       x += b.elm.w + gap;
     }
     const needed = top + tallest + pad - parentElm.y;
-    if (needed > parentElm.h || FIT_TO_CONTENT.indexOf(parentElm.type) >= 0) {
+    if (needed > ownH || (FIT_TO_CONTENT.indexOf(parentElm.type) >= 0)) {
       parentElm.h = Math.max(40, Math.round(needed));
     }
+    parentElm.h = Math.max(parentElm.h, floorH || 0);
     return nextId;
   }
 
-  let y = top;
+  /* A column. (fill) here means the other axis: the child takes the height its
+   * container has left over, which is how `screen: header + body (fill)` comes
+   * out looking like an app rather than a stack of boxes with paper below them.
+   * The leftover can only be worked out once the fixed children have been
+   * measured, so this is the same build-measure-place shape as a row. */
+  const built = [];
   for (const kid of kids) {
     const def = WIDGETS[kid.type];
-    const elm = makeChild(kid, innerX, y, innerW, def.size[1]);
-    out.push(elm);
-    nextId = layoutChildren(kid, elm, out, nextId);   // may grow elm.h
-    y += elm.h + gap;
+    const elm = makeChild(kid, innerX, top, innerW, def.size[1]);
+    built.push({ kid: kid, elm: elm });
+  }
+  for (const b of built) measureTree(b.kid, b.elm);
+
+  if (fillCount) {
+    const gaps = gap * (kids.length - 1);
+    const fixed = built.reduce(function (n, b, i) { return n + (fills[i] ? 0 : b.elm.h); }, 0);
+    const content = built.reduce(function (n, b, i) { return n + (fills[i] ? b.elm.h : 0); }, 0);
+    const room = ownH - inset - pad - fixed - gaps;
+    const extra = room - content;
+    if (extra > 0) {
+      const share = Math.floor(extra / fillCount);
+      for (let i = 0; i < built.length; i++) if (fills[i]) built[i].elm.h += share;
+    }
+  }
+
+  let y = top;
+  for (let i = 0; i < built.length; i++) {
+    const b = built[i];
+    b.elm.y = Math.round(y);
+    out.push(b.elm);
+    nextId = layoutChildren(b.kid, b.elm, out, nextId, fills[i] ? b.elm.h : 0);
+    y += b.elm.h + gap;
   }
   const needed = (y - gap) + pad - parentElm.y;
-  if (needed > parentElm.h || FIT_TO_CONTENT.indexOf(parentElm.type) >= 0) {
+  if (needed > ownH || (FIT_TO_CONTENT.indexOf(parentElm.type) >= 0)) {
     parentElm.h = Math.max(40, Math.round(needed));
   }
+  parentElm.h = Math.max(parentElm.h, floorH || 0);
   return nextId;
 }
 
@@ -4777,16 +5366,9 @@ function layoutChildren(parentNode, parentElm, out, nextId) {
 function elementsFromDef(def, startId, x, y) {
   const tree = parseWf(def.snippet);
   const top = tree.children[0];
-  const info = top ? splitMods(top.value) : { text: '', mods: [] };
-  const root = {
-    id: startId, type: def.name,
-    x: Math.round(x), y: Math.round(y),
-    w: def.size[0], h: def.size[1],
-    value: info.text,
-    rows: top ? top.children.filter(function (c) { return c.type === '_row'; })
-                            .map(function (c) { return c.value; }).join('\n') : '',
-    mods: info.mods
-  };
+  const root = top ? elementFromNode(top, startId, x, y)
+                   : { id: startId, type: def.name, x: Math.round(x), y: Math.round(y),
+                       w: def.size[0], h: def.size[1], value: '', rows: '', mods: [] };
   const out = [root];
   if (top) layoutChildren(top, root, out, startId + 1);
   return out;
@@ -4807,17 +5389,7 @@ function elementsFromDsl(dsl, startId, x, y) {
   let top = y;
   for (const node of tree.children) {
     if (node.type === '_row' || !WIDGETS[node.type]) continue;
-    const def = WIDGETS[node.type];
-    const info = splitMods(node.value);
-    const root = normaliseElement({
-      id: id++, type: def.name,
-      x: Math.round(x), y: Math.round(top),
-      w: def.size[0], h: def.size[1],
-      value: info.text,
-      rows: node.children.filter(function (c) { return c.type === '_row'; })
-                         .map(function (c) { return c.value; }).join('\n'),
-      mods: info.mods
-    });
+    const root = normaliseElement(elementFromNode(node, id++, x, top));
     out.push(root);
     id = layoutChildren(node, root, out, id);
     top = root.y + root.h + 40;      // stacked, so two screens do not overlap
@@ -5075,11 +5647,12 @@ function dataUrlToBytes(dataUrl) {
   } catch (e) { return null; }
 }
 
-function imageNameFor(basename, taken) {
+function imageNameFor(basename, taken, ext) {
   const safe = String(basename || 'Wireframe').replace(/[\\/:|#^\[\]]/g, ' ').trim() || 'Wireframe';
-  let name = safe + '.png';
+  const dot = '.' + String(ext || 'png').replace(/^\./, '');
+  let name = safe + dot;
   let n = 2;
-  while (taken && taken(name)) { name = safe + ' ' + n++ + '.png'; if (n > 500) break; }
+  while (taken && taken(name)) { name = safe + ' ' + n++ + dot; if (n > 500) break; }
   return name;
 }
 
@@ -5186,6 +5759,15 @@ class WireEditorView extends TextFileView {
   getViewType() { return WIRE_VIEW; }
   getIcon() { return 'drafting-compass'; }
   getDisplayText() { return this.file ? this.file.basename : 'Wireframe'; }
+
+  /* Rebuilt on every render rather than cached in the constructor: a board can
+   * be renamed or moved while it is open, and `logo.png` has to keep meaning
+   * the one next to it. Returns null in the test harness, which has no vault,
+   * and an `img:` there draws its placeholder. */
+  imageResolver() {
+    if (!this.app || !this.app.vault) return null;
+    return imageResolver(this.app, this.file ? this.file.path : '');
+  }
 
   /* --- TextFileView contract --- */
 
@@ -5460,6 +6042,36 @@ class WireEditorView extends TextFileView {
   /* Returns a PNG data URL for the whole board, or null if the platform will
    * not rasterise. Selection chrome is stripped from a clone, so the live DOM
    * is never touched and the picture has no handles in it. */
+  /* Every picture on the clone becomes a data URI, so the exported PNG has the
+   * logos in it. One failure does not fail the export: a missing file leaves
+   * an empty box, which is what the board showed anyway. */
+  async inlineImages(clone) {
+    const imgs = Array.prototype.slice.call(clone.querySelectorAll('img.wf-img-el'));
+    if (!imgs.length || !this.app || !this.app.vault) return;
+    const from = this.file ? this.file.path : '';
+    const cache = new Map();
+    for (const img of imgs) {
+      const link = imageLinkpath(img.getAttribute('data-wf-img') || '');
+      if (!link) { img.removeAttribute('src'); continue; }
+      try {
+        if (!cache.has(link)) {
+          const file = this.app.metadataCache.getFirstLinkpathDest(link, from);
+          if (!file) { cache.set(link, null); }
+          else {
+            const buf = await this.app.vault.readBinary(file);
+            const media = chatImageMedia(file.extension) || 'image/png';
+            cache.set(link, 'data:' + media + ';base64,' + arrayBufferToBase64(buf));
+          }
+        }
+        const url = cache.get(link);
+        if (url) img.setAttribute('src', url);
+        else img.removeAttribute('src');
+      } catch (e) {
+        img.removeAttribute('src');
+      }
+    }
+  }
+
   async boardImage(scale) {
     if (!this.surfaceEl) return null;
     const at = typeof scale === 'number' && scale > 0 ? scale : 2;
@@ -5474,6 +6086,11 @@ class WireEditorView extends TextFileView {
     for (const sel of Array.prototype.slice.call(clone.querySelectorAll('.wire-selected'))) {
       sel.classList.remove('wire-selected');
     }
+
+    /* Before serialising, not after: an <img> inside a foreignObject that is
+     * itself loaded as a data URL cannot fetch anything, so a vault resource
+     * path exports as a hole where the logo was. */
+    await this.inlineImages(clone);
 
     const cssText = collectPluginCss(document);
     const css = exportCss(cssText, this.stageEl).replace(/\]\]>/g, ']]&gt;');
@@ -5875,7 +6492,7 @@ class WireEditorView extends TextFileView {
     box.style.width = elm.w + 'px';
     box.style.height = elm.h + 'px';
     const inner = box.createDiv({ cls: 'wire-el-inner' });
-    renderElementInto(inner, elm, this.skin());
+    renderElementInto(inner, elm, this.skin(), this.imageResolver());
     this.els.set(elm.id, box);
     return box;
   }
@@ -6053,12 +6670,140 @@ class WireEditorView extends TextFileView {
     return group[0];
   }
 
-  placeAtCentre(def) {
+  /* ---------- pictures ---------- *
+   * Three ways in, one place they land: an `img` element holding a path. A
+   * file from outside the vault is written beside the board first; a file
+   * already in the vault is pointed at where it lies.
+   */
+
+  /* One element, sized to the picture, centred on where it was dropped. */
+  addImage(ref, point, box) {
+    const def = WIDGETS['img'];
+    if (!def) return null;
+    const size = box || { w: def.size[0], h: def.size[1] };
+    const elm = normaliseElement({
+      id: this.doc.nextId++, type: 'img',
+      x: this.snap(point.x - size.w / 2), y: this.snap(point.y - size.h / 2),
+      w: size.w, h: size.h, value: ref, rows: '', mods: []
+    });
+    this.doc.elements.push(elm);
+    this.sel = [elm.id];
+    return elm;
+  }
+
+  /* Files from outside the vault: dropped from the desktop, or pasted. Each is
+   * validated, written into the board's own images folder, measured, and
+   * placed. One commit for the batch, so dropping four logos is one undo. */
+  async placeImageFiles(files, point) {
+    if (!this.file) {
+      new Notice('Save the board first \u2014 pictures are stored beside it.');
+      return;
+    }
+    const folder = boardImageFolder(this.file.path);
+    const list = Array.prototype.slice.call(files || []);
+    let placed = 0;
+    let step = 0;
+    for (const file of list) {
+      try {
+        const buf = await file.arrayBuffer();
+        const media = chatImageExt(file.type) ? file.type : chatImageMedia((file.name || '').split('.').pop());
+        const path = await saveBoardImage(this.app, folder, file.name, media, buf);
+        const nat = await imageNaturalSize(new Uint8Array(buf), media);
+        const box = nat ? imageBoxFor(nat.w, nat.h) : null;
+        /* Several at once cascade instead of stacking, so you can see how many
+         * arrived and drag them apart. */
+        this.addImage(boardImageRef(this.file.path, path),
+          { x: point.x + step * 24, y: point.y + step * 24 }, box);
+        placed++;
+        step++;
+      } catch (e) {
+        new Notice((e && e.message ? e.message : 'Could not add that image.'));
+      }
+    }
+    if (!placed) return;
+    this.commit();
+    this.renderAll();
+    new Notice(placed === 1 ? 'Added the picture, beside the board.'
+                            : 'Added ' + placed + ' pictures, beside the board.');
+  }
+
+  /* A file already in the vault, dragged from the file explorer. Referenced,
+   * never copied. */
+  placeVaultImage(link, point) {
+    const resolve = this.imageResolver();
+    const file = this.app && this.app.metadataCache
+      ? this.app.metadataCache.getFirstLinkpathDest(link, this.file ? this.file.path : '')
+      : null;
+    if (!file || !resolve || !resolve(link)) {
+      new Notice('Could not find ' + link + ' in the vault.');
+      return null;
+    }
+    const made = this.addImage(this.file ? boardImageRef(this.file.path, file.path) : file.path, point, null);
+    this.commit();
+    this.renderAll();
+    /* The designed 320x200 until it loads, then the picture's own shape: the
+     * bytes are not in hand here the way they are for a drop, so the size
+     * comes from the element the renderer just built. */
+    this.fitImageElement(made);
+    return made;
+  }
+
+  /* Once the browser has decoded it, the element takes the picture's aspect
+   * ratio. Deliberately after the commit and without one of its own: it is a
+   * correction to a size nobody chose, not an edit worth its own undo step. */
+  fitImageElement(elm) {
+    if (!elm) return;
+    const box = this.els.get(elm.id);
+    const img = box ? box.querySelector('img.wf-img-el') : null;
+    if (!img) return;
+    const apply = () => {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const live = this.byId(elm.id);
+      if (!live) return;
+      const fit = imageBoxFor(img.naturalWidth, img.naturalHeight);
+      if (live.w === fit.w && live.h === fit.h) return;
+      live.w = fit.w;
+      live.h = fit.h;
+      this.renderAll();
+      this.requestSave();
+    };
+    if (img.complete && img.naturalWidth) apply();
+    else img.addEventListener('load', apply, { once: true });
+  }
+
+  /* Point an existing image element at a different file. */
+  pickImageFor(id) {
+    new GeniePickModal(this.app, (f) => {
+      const elm = this.byId(id);
+      if (!elm || !f) return;
+      elm.value = this.file ? boardImageRef(this.file.path, f.path) : f.path;
+      this.commit();
+      this.renderAll();
+      this.fitImageElement(elm);
+    }, 'use it').open();
+  }
+
+  /* Place one from the vault, without a drag. Also the command. */
+  pickImage() {
+    new GeniePickModal(this.app, (f) => {
+      if (!f) return;
+      this.placeVaultImage(this.file ? boardImageRef(this.file.path, f.path) : f.path,
+        this.viewCentre());
+      this.stageEl.focus();
+    }, 'place it').open();
+  }
+
+  /* The middle of what is on screen, in board coordinates. A paste has no
+   * pointer position to work from. */
+  viewCentre() {
     const r = this.stageEl.getBoundingClientRect();
     const v = this.doc.view;
-    const cx = (r.width / 2 - v.x) / v.zoom - def.size[0] / 2;
-    const cy = (r.height / 2 - v.y) / v.zoom - def.size[1] / 2;
-    const made = this.addElement(def, cx, cy);
+    return { x: (r.width / 2 - v.x) / v.zoom, y: (r.height / 2 - v.y) / v.zoom };
+  }
+
+  placeAtCentre(def) {
+    const c = this.viewCentre();
+    const made = this.addElement(def, c.x - def.size[0] / 2, c.y - def.size[1] / 2);
     this.stageEl.focus();
     return made;
   }
@@ -6086,6 +6831,12 @@ class WireEditorView extends TextFileView {
     this.sel = [group[0].id];
     this.commit();
     this.zoomToFit();
+    /* A picture named in the DSL gets the widget's designed 320x200 until the
+     * layout is done, which for a wide logo is a tall box with the picture
+     * letterboxed inside it. Once the browser has decoded each one, the
+     * element takes the picture's own shape. Once, at insert: after that the
+     * size is the person's to choose. */
+    for (const elm of group) if (elm.type === 'img') this.fitImageElement(elm);
     new Notice('Added ' + group.length + ' element' + (group.length === 1 ? '' : 's') + '.');
     void r;
     return group[0];
@@ -6317,6 +7068,15 @@ class WireEditorView extends TextFileView {
       /* The genie's composer has its own paste handler for screenshots. Both
        * used to fire, so pasting an image also tried to paste board elements. */
       if (this.editing || fromChrome(evt)) return;
+      /* A picture first: copy a logo in a browser, paste it here. Checked
+       * before the element clipboard because a copied image often carries a
+       * text/plain alongside it, and that text is not board elements. */
+      const pictures = imagePasteFiles(evt.clipboardData);
+      if (pictures.length) {
+        evt.preventDefault();
+        this.placeImageFiles(pictures, this.viewCentre());
+        return;
+      }
       const text = evt.clipboardData ? evt.clipboardData.getData('text/plain') : '';
       const clip = parseClip(text);
       if (!clip && !WIRE_CLIPBOARD) return;
@@ -6337,9 +7097,11 @@ class WireEditorView extends TextFileView {
       this.requestSave();
     }, { passive: false });
 
-    // dropping from the palette
+    // dropping from the palette, from the file explorer, or from the desktop
     this.registerDomEvent(stage, 'dragover', (evt) => {
-      if (!this.palDrag && !this.palDragIcon) return;
+      /* A picture being dragged in has to be claimed here or the OS opens it
+       * in a new window instead of dropping it on the board. */
+      if (!this.palDrag && !this.palDragIcon && !imageDropKind(evt.dataTransfer)) return;
       evt.preventDefault();
       try { evt.dataTransfer.dropEffect = 'copy'; } catch (e) { /* noop */ }
       stage.classList.add('wire-drop');
@@ -6349,7 +7111,17 @@ class WireEditorView extends TextFileView {
       const def = this.palDrag;
       const iconName = this.palDragIcon;
       stage.classList.remove('wire-drop');
-      if (!def && !iconName) return;
+      if (!def && !iconName) {
+        const carried = imageDropKind(evt.dataTransfer);
+        if (!carried) return;
+        evt.preventDefault();
+        const at = this.docPoint(evt);
+        if (carried.kind === 'files') this.placeImageFiles(carried.files, at);
+        else if (carried.kind === 'vault') this.placeVaultImage(carried.link, at);
+        else new Notice('Drop a PNG or a JPEG.');
+        this.stageEl.focus();
+        return;
+      }
       evt.preventDefault();
       this.palDrag = null;
       this.palDragIcon = null;
@@ -6912,7 +7684,7 @@ class WireEditorView extends TextFileView {
     const inner = box.querySelector('.wire-el-inner');
     if (!inner) return;
     inner.empty();
-    renderElementInto(inner, probe, this.skin());
+    renderElementInto(inner, probe, this.skin(), this.imageResolver());
   }
 
   commitEdit() {
@@ -7202,6 +7974,11 @@ class WireEditorView extends TextFileView {
       const b = acts.createDiv({ cls: 'wire-ins-btn', text: label });
       b.addEventListener('click', fn);
     };
+    if (e.type === 'img') {
+      /* Typing a path is the worst way to point at a file, so the inspector
+       * offers the vault. Editing the text still works for `320x180`. */
+      act('Choose a picture…', () => this.pickImageFor(e.id));
+    }
     act('Edit text', () => this.startEdit(e.id));
     act('Connect →', () => this.setConnectMode(true));
     act('Duplicate', () => this.duplicate());
@@ -7224,9 +8001,12 @@ class WireframyPlugin extends Plugin {
     // The core of the plugin: a wf code block renders as a wireframe.
     // This fires in reading view, live preview, AND inside Canvas text
     // nodes and Canvas file-node embeds, which is what makes masters work.
-    this.registerMarkdownCodeBlockProcessor('wf', (source, el) => {
+    this.registerMarkdownCodeBlockProcessor('wf', (source, el, sctx) => {
       el.addClass('wf-host');
-      renderWireframe(el, source, this.settings);
+      /* sourcePath is what makes a bare `logo.png` in a note mean the picture
+       * beside that note, exactly as an Obsidian link would. */
+      const from = sctx && sctx.sourcePath ? sctx.sourcePath : '';
+      renderWireframe(el, source, this.settings, imageResolver(this.app, from));
     });
 
     this.registerView(VIEW_PALETTE, (leaf) => new PaletteView(leaf, this));
@@ -7821,6 +8601,8 @@ class WireframyPlugin extends Plugin {
       (v) => v.setPresenting(!v.presenting), mod('F', ['Shift']));
     this.wireCommand('wire-lock', 'Wireframe: lock this board',
       (v) => v.setLocked(!v.locked));
+    this.wireCommand('wire-insert-image', 'Wireframe: place a picture from the vault',
+      (v) => v.pickImage());
     this.wireCommand('wire-alternative', 'Wireframe: create an alternate version',
       (v) => { this.duplicateAsAlternative(v); });
 
@@ -8022,6 +8804,19 @@ module.exports.__internals = {
   collectPluginCss: collectPluginCss,
   boardBounds: boardBounds,
   imageNameFor: imageNameFor,
+  IMAGE_EXT: IMAGE_EXT,
+  imageLinkpath: imageLinkpath,
+  imageSource: imageSource,
+  imageAlt: imageAlt,
+  imageResolver: imageResolver,
+  boardImageFolder: boardImageFolder,
+  boardImageRef: boardImageRef,
+  imageBoxFor: imageBoxFor,
+  labelWidth: labelWidth,
+  naturalWidth: naturalWidth,
+  imageDropKind: imageDropKind,
+  imagePasteFiles: imagePasteFiles,
+  saveBoardImage: saveBoardImage,
   dataUrlToBytes: dataUrlToBytes,
   boardNotesTemplate: boardNotesTemplate,
   ANNOTATION_TYPES: ANNOTATION_TYPES,
@@ -8048,6 +8843,12 @@ module.exports.__internals = {
   aiValidateDsl: aiValidateDsl,
   aiParseChatReply: aiParseChatReply,
   aiChatSystemPrompt: aiChatSystemPrompt,
+  aiDslRules: aiDslRules,
+  CONTENT_H: CONTENT_H,
+  contentRows: contentRows,
+  contentHeight: contentHeight,
+  markColumns: markColumns,
+  markCell: markCell,
   chatPaths: chatPaths,
   chatStamp: chatStamp,
   chatWhen: chatWhen,

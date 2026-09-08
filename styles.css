@@ -305,6 +305,31 @@
 }
 .wf-img-label { position: relative; font-size: 10.5px; color: var(--wf-ink-soft); background: var(--wf-paper); padding: 1px 6px; margin-bottom: 6px; }
 
+/* A real picture, not a placeholder. The frame, the hatching and the 64px
+   floor all belong to the placeholder: a 24px icon has to be allowed to be
+   24px, and a logo with a hand-drawn border round it reads as a mistake. */
+.wf-img-real { border: 0; background: none; min-height: 0; display: block; overflow: hidden; }
+.wf-img-el { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+/* Handles stay free, so the box distorts and the picture does not — unless it
+   is asked to. (stretch) fills the box exactly; (cover) fills it by cropping.
+   Keyed off the wrapper's modifier class, because that is the one channel that
+   carries a modifier in BOTH render paths: a board element stores its
+   modifiers separately from its value, so a class the widget adds by reading
+   its own value never appears there. */
+.wf-m-stretch .wf-img-el { object-fit: fill; }
+.wf-m-cover .wf-img-el { object-fit: cover; }
+/* The sketch skin gives .wf-img a hand-drawn border radius, which on a
+   photograph reads as a rendering bug. Two classes on the same element rather
+   than one, so this outranks that rule instead of merely following it: the
+   divider spent two releases as a grey bar because a fix relied on source
+   order against a same-specificity selector. */
+.wf-img.wf-img-real,
+.wf-skin-sketch .wf-img.wf-img-real,
+.wf-skin-mono .wf-img.wf-img-real,
+.wf-skin-blueprint .wf-img.wf-img-real {
+  border: 0; border-radius: 0; box-shadow: none;
+}
+
 .wf-avatars { display: flex; }
 .wf-avatar { width: 30px; height: 30px; border-radius: 50%; border: var(--wf-bw) solid var(--wf-line); background: var(--wf-fill); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--wf-ink-soft); margin-left: -7px; }
 .wf-avatar:first-child { margin-left: 0; }
@@ -321,6 +346,13 @@
 .wf-tr:last-child { border-bottom: none; }
 .wf-td { flex: 1 1 0; padding: 7px 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--wf-line-soft); }
 .wf-td:last-child { border-right: none; }
+/* A cell that draws a control instead of printing text. Tight cells opt out of
+   the equal-share flex so the marker columns stay narrow and the columns that
+   hold sentences get the room. One fixed width rather than shrink-to-fit: a
+   star column with two stars and two blanks in it has to be the same width in
+   all four rows, or the columns after it zigzag. */
+.wf-td-mark { display: flex; align-items: center; gap: 7px; }
+.wf-td-tight { flex: 0 0 auto; width: 36px; box-sizing: border-box; justify-content: center; }
 .wf-th { background: var(--wf-fill); font-weight: 700; border-bottom: var(--wf-bw) solid var(--wf-line); }
 .wf-tr.wf-selected { background: var(--wf-fill); box-shadow: inset 3px 0 0 var(--wf-line); }
 .wf-tr-sep { height: 9px; background: var(--wf-fill); border-bottom: 1px solid var(--wf-line-soft); }
@@ -369,7 +401,27 @@
 .wf-note-line + .wf-note-line { margin-top: 3px; }
 .wf-callout { display: flex; align-items: center; gap: 9px; }
 .wf-callout-num { width: 21px; height: 21px; border-radius: 50%; background: var(--wf-danger); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: 0 0 auto; }
+/* `flex: 1 1 auto` is right inside a labelled divider, where the two lines
+   flank the text along the row axis. As the only child of .wf-w-divider it is
+   wrong: that box is a column, so grow applied to the HEIGHT and a 1px rule
+   filled the element — a plain `divider:` on a board came out as a solid grey
+   bar the width of the screen. */
 .wf-divline { flex: 1 1 auto; height: 1px; background: var(--wf-line-soft); }
+.wf-w-divider { justify-content: center; }
+/* Two selectors, and the second is not redundant: on a board the wireframe
+   sits inside .wire-el-inner, where `.wire-el-inner .wf-w > :only-child
+   { flex: 1 1 auto }` makes a lone child fill its element box. That rule is
+   right for almost every widget and wrong for this one.
+
+   It has to WIN, not merely exist. My first attempt spelled the board case
+   `.wire-el-inner .wf-w-divider > .wf-divline`, which is three classes —
+   exactly the specificity of the :only-child rule it was written to beat, and
+   earlier in the file, so it lost and the divider stayed a grey bar the width
+   of the board. I checked the fix against the palette thumbnail, which is not
+   inside .wire-el-inner at all, and saw a hairline. Matching both classes on
+   the wrapper makes this four, which wins wherever either rule moves to. */
+.wf-w-divider > .wf-divline,
+.wire-el-inner .wf-w.wf-w-divider > .wf-divline { flex: 0 0 1px; align-self: stretch; }
 .wf-divider-label { display: flex; align-items: center; gap: 10px; color: var(--wf-ink-faint); font-size: 11.5px; }
 .wf-spacer { width: 100%; }
 .wf-error { color: var(--wf-danger); font-family: var(--font-monospace, monospace); font-size: 11.5px; }
