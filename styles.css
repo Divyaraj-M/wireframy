@@ -1274,6 +1274,20 @@
 .wire-wn-btn:active { transform: scale(.97); }
 .wire-wn-btn.wire-busy { opacity: .55; pointer-events: none; }
 
+/* `hidden` has to actually hide.
+ *
+ * The UA stylesheet's [hidden] { display: none } is an author-vs-UA fight it
+ * always loses: any author rule setting `display` wins, whatever the
+ * specificity. So `.wire-genie { display: flex }` silently defeated
+ * `el.hidden = true`, and the genie panel sat open over the bottom-right
+ * corner of every board from the day it shipped — eating clicks meant for the
+ * canvas. The attachment chip did the same with nothing attached.
+ *
+ * Scoped to .wire-host so it cannot reach Obsidian's own UI, and at two
+ * classes of specificity so it beats a single-class display rule without
+ * needing !important. */
+.wire-host [hidden] { display: none; }
+
 /* ---- the genie ----------------------------------------------------
    A lamp bottom-right of the stage, and a panel above it. Both are
    position:absolute inside .wire-stage, which already has a position, so
@@ -1339,6 +1353,24 @@
   flex: 1 1 auto; min-height: 80px; overflow-y: auto; overscroll-behavior: contain;
   padding: 12px; display: flex; flex-direction: column; gap: 14px;
 }
+
+/* Off or unconfigured. Deliberately a bordered block with an accent edge
+   rather than another paragraph: the panel used to report this in 11.5px grey
+   text in the header corner, which is the same as not reporting it. */
+.wire-gn-gate {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 13px 15px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  background: var(--background-secondary);
+}
+.wire-gn-gate-h { font-size: 13.5px; font-weight: 600; color: var(--text-normal); }
+.wire-gn-gate-p { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+
+/* Not the same as .wire-busy: busy is temporary and the control still works,
+   blocked means it can do nothing until a setting changes. */
+.wire-gn-blocked { opacity: .4; pointer-events: none; }
+.wire-gn-input:disabled { opacity: .55; cursor: not-allowed; }
 
 .wire-gn-empty { display: flex; flex-direction: column; gap: 8px; }
 .wire-gn-empty-h { font-size: 13px; font-weight: 600; color: var(--text-normal); }

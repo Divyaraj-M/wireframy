@@ -80,6 +80,23 @@ const DEFAULT_SETTINGS = {
  * have to, and a changelog is not worth one. Newest first. */
 const RELEASE_NOTES = [
   {
+    version: '1.5.2',
+    lines: [
+      'The genie panel was stuck open. A CSS rule of mine overrode the browser\u2019s own way of hiding things, so the panel sat over the bottom-right corner of every board from the moment 1.5.0 shipped, eating clicks meant for the canvas.',
+      'Typing in the genie no longer reaches the board. The panel lives inside the drawing surface, so every keystroke also ran a board shortcut: \u201cc\u201d toggled connect mode and threw focus off the box, Enter opened the selected element\u2019s editor, the arrows nudged elements, and Backspace deleted whatever was selected.',
+      'Clicking anything in the panel works. A click in there was also a click on the board, which cleared your selection and started a marquee, and made every button in the panel feel dead.',
+      'The model is a dropdown now, with Custom for anything newer than this build. Typing a model name by hand was the one thing you could get wrong invisibly.'
+    ]
+  },
+  {
+    version: '1.5.1',
+    lines: [
+      'The genie used to take your question and then refuse it, with the reason in small grey text in the corner. AI ships off by default, so that was the first thing most people met. It now says what is wrong, names the switch to flip, and will not let you type a question it cannot answer.',
+      'Both default models were out of date. Gemini went to gemini-3.6-flash and Anthropic to claude-sonnet-5; the old defaults would have failed on the first question if you had not set a model yourself.',
+      'The Gemini key hint said AIza. Google AI Studio now issues keys that start AQ., so a correct new key looked wrong.'
+    ]
+  },
+  {
     version: '1.5.0',
     lines: [
       'A genie. There is a lamp in the corner of every board: attach a screenshot, ask what is wrong with it, and get an answer. If the answer contains a wireframe there is a button that adds it.',
@@ -646,6 +663,26 @@ function buildIconSvg(spec, size) {
     else if (op === 't') svgChild(svg, 'circle', { cx: n[0], cy: n[1], r: 1.35, fill: 'currentColor', stroke: 'none' });
   }
   return svg;
+}
+
+/* True when an event came from something that owns its own keys and clicks:
+ * a text field, a contenteditable, or the genie panel.
+ *
+ * The editor binds keydown, pointerdown, dblclick and copy/cut/paste to
+ * `.wire-stage`, and the genie panel is a CHILD of the stage — so before this
+ * existed, every keystroke in the genie's composer ALSO ran a board shortcut.
+ * Typing `c` toggled connect mode and threw focus off the box, Enter opened
+ * the selected element's editor, arrows nudged elements around, pasting a
+ * screenshot also tried to paste elements onto the board, and Backspace
+ * deleted the selection. The inline element editor got this right by calling
+ * stopPropagation on its own textarea; the guard belongs on the stage instead,
+ * so anything mounted inside it is safe by default rather than by remembering.
+ */
+function fromChrome(evt) {
+  const t = evt && evt.target;
+  if (!t || typeof t.closest !== 'function') return false;
+  if (t.closest('.wire-genie, .wire-genie-launch')) return true;
+  return !!t.closest('input, textarea, select, [contenteditable="true"]');
 }
 
 /* Append an icon to `host`. Unknown names fall back to Obsidian's bundled
@@ -2780,16 +2817,42 @@ class WireframeSettingTab extends PluginSettingTab {
           return t;
         });
 
+      /* A dropdown, because the one thing people had to type by hand was the
+       * one thing they could get wrong invisibly. Custom keeps the text box
+       * for anything released after this build. */
+      const known = aiKnownModel(this.plugin.settings);
       new Setting(c)
         .setName('Model')
-        .setDesc('Leave it empty for ' + provider.defaultModel + '. Letters, digits, dots and dashes only.')
-        .addText((t) => t
-          .setPlaceholder(provider.defaultModel)
-          .setValue(this.plugin.settings.ai.model)
-          .onChange(async (v) => {
-            this.plugin.settings.ai.model = v.trim();
+        .setDesc(known
+          ? 'Pick one, or choose Custom to type a model this build has not heard of.'
+          : 'Using a custom model. Pick one from the list to go back to a known one.')
+        .addDropdown((d) => {
+          for (const m of provider.models) d.addOption(m, m);
+          d.addOption(AI_CUSTOM_MODEL, 'Custom\u2026');
+          d.setValue(known || AI_CUSTOM_MODEL);
+          d.onChange(async (v) => {
+            /* Choosing Custom must not wipe what is stored, or picking it by
+               accident silently resets a working model. */
+            if (v !== AI_CUSTOM_MODEL) this.plugin.settings.ai.model = v;
+            else if (aiKnownModel(this.plugin.settings)) this.plugin.settings.ai.model = '';
             await this.plugin.saveSettings();
-          }));
+            this.display();
+          });
+        });
+
+      if (!known) {
+        new Setting(c)
+          .setName('Custom model')
+          .setDesc('Letters, digits, dots, dashes and underscores. Empty falls back to ' +
+                   provider.defaultModel + '.')
+          .addText((t) => t
+            .setPlaceholder(provider.defaultModel)
+            .setValue(this.plugin.settings.ai.model)
+            .onChange(async (v) => {
+              this.plugin.settings.ai.model = v.trim();
+              await this.plugin.saveSettings();
+            }));
+      }
 
       new Setting(c)
         .setName('What gets sent')
@@ -3134,7 +3197,11 @@ function aiChatSystemPrompt() {
 const AI_PROVIDERS = {
   anthropic: {
     label: 'Anthropic (Claude)',
-    defaultModel: 'claude-sonnet-4-5',
+    defaultModel: 'claude-sonnet-5',
+    /* Offered in the dropdown. Checked against the provider's own model list
+     * on 2026-09-08; "Custom" is always available, because a hard-coded list
+     * is precisely how this plugin shipped a superseded default model. */
+    models: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001', 'claude-fable-5-1'],
     keyHint: 'sk-ant-…',
     keysAt: 'console.anthropic.com → API keys',
     host: 'https://api.anthropic.com',
@@ -3173,8 +3240,10 @@ const AI_PROVIDERS = {
 
   gemini: {
     label: 'Google (Gemini)',
-    defaultModel: 'gemini-2.5-flash',
-    keyHint: 'AIza…',
+    defaultModel: 'gemini-3.6-flash',
+    models: ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.7-flash',
+             'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'],
+    keyHint: 'AQ.…',
     keysAt: 'aistudio.google.com → Get API key',
     host: 'https://generativelanguage.googleapis.com',
     /* The model goes in the PATH, which is why aiSafeModel exists: a model
@@ -3218,6 +3287,19 @@ const AI_PROVIDERS = {
 };
 
 const AI_PROVIDER_IDS = Object.keys(AI_PROVIDERS);
+
+/* The dropdown value that means "let me type one". Not a model name, and
+ * never stored as one. */
+const AI_CUSTOM_MODEL = '__custom__';
+
+/* Is the stored model one this build knows about? Decides whether the
+ * dropdown shows it or falls back to Custom with the text box revealed. */
+function aiKnownModel(settings) {
+  const p = aiProvider(settings);
+  const m = String((settings && settings.ai ? settings.ai.model : '') || '').trim();
+  if (!m) return p.defaultModel;
+  return (p.models || []).indexOf(m) >= 0 ? m : null;
+}
 
 function aiProvider(settings) {
   const id = settings && settings.ai ? String(settings.ai.provider || '') : '';
@@ -3420,6 +3502,25 @@ class GenieChat {
 
     this.el = host.createDiv({ cls: 'wire-genie' });
     this.el.hidden = true;
+    /* Belt as well as braces, and deliberately redundant with fromChrome() on
+     * the stage's own handlers. Either layer alone fixes the bug, which means
+     * removing one shows no test failure — do not take that as proof it is
+     * dead code. island.test.js documents this: it only fails when BOTH are
+     * gone. Two layers because the stage's handler list will grow, and the
+     * next person to add one should not have to remember the guard. */
+    for (const type of ['keyup', 'pointerdown', 'dblclick']) {
+      this.el.addEventListener(type, (evt) => evt.stopPropagation());
+    }
+    /* Escape belongs to the panel, not to the composer. Handling it only on
+     * the textarea meant that clicking Attach and then pressing Escape did
+     * nothing at all: focus had left the box, and the stage — correctly —
+     * ignores keys from in here. */
+    this.el.addEventListener('keydown', (evt) => {
+      evt.stopPropagation();
+      if (evt.key !== 'Escape') return;
+      evt.preventDefault();
+      this.hide();
+    });
     this.buildPanel();
   }
 
@@ -3455,9 +3556,8 @@ class GenieChat {
     this.inputEl.setAttribute('aria-label', 'Ask the genie');
     this.inputEl.addEventListener('keydown', (evt) => {
       if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) { evt.preventDefault(); this.send(); }
-      /* Escape closes the panel rather than reaching the board, where it would
-       * clear the selection of something the person cannot even see. */
-      if (evt.key === 'Escape') { evt.preventDefault(); evt.stopPropagation(); this.hide(); }
+      /* Escape is handled once, on the panel root, so it works wherever focus
+       * is inside the panel rather than only in this box. */
     });
     /* A screenshot in the clipboard is the fastest attachment there is, so it
      * is one keystroke and no dialog. */
@@ -3465,6 +3565,7 @@ class GenieChat {
 
     const bar = foot.createDiv({ cls: 'wire-gn-bar' });
     const attach = bar.createDiv({ cls: 'wire-gn-attach', text: 'Attach' });
+    this.attachEl = attach;
     attach.setAttribute('role', 'button');
     attach.setAttribute('tabindex', '0');
     attach.setAttribute('title', 'Pick a JPEG or PNG from your vault');
@@ -3507,6 +3608,21 @@ class GenieChat {
     this.render();
   }
 
+  /* A disabled textarea cannot be typed into and is skipped by Tab, which is
+   * the honest state for a composer whose Ask button will refuse. */
+  setComposerEnabled(on) {
+    if (!this.inputEl) return;
+    this.inputEl.disabled = !on;
+    this.inputEl.setAttribute('placeholder', on
+      ? 'Ask about this board, or paste a screenshot\u2026'
+      : 'Turn AI on to use the genie');
+    for (const el of [this.sendEl, this.attachEl]) {
+      if (!el) continue;
+      if (on) { el.removeClass('wire-gn-blocked'); el.setAttribute('tabindex', '0'); }
+      else { el.addClass('wire-gn-blocked'); el.setAttribute('tabindex', '-1'); }
+    }
+  }
+
   toggle() { if (this.shown) this.hide(); else this.show(); }
 
   show() {
@@ -3514,7 +3630,10 @@ class GenieChat {
     this.el.hidden = false;
     this.launcherEl.addClass('wire-gn-lit');
     this.render();
-    this.inputEl.focus();
+    /* focus() on a disabled textarea is a no-op, so the keyboard would be left
+     * nowhere. Send it to the board instead. */
+    if (this.inputEl.disabled) { if (this.view.stageEl) this.view.stageEl.focus(); }
+    else this.inputEl.focus();
   }
 
   hide() {
@@ -3740,6 +3859,35 @@ class GenieChat {
 
   /* ---- painting ---- */
 
+  /* What is stopping the genie from working, or null when nothing is.
+   *
+   * This exists because the panel used to whisper. AI ships off by default, so
+   * the first thing most people meet is a chat box that takes a question and
+   * then refuses it, with the reason in 11px grey text in the corner. The
+   * refusal was correct and invisible, which is the same as broken. */
+  aiGate() {
+    const ai = this.plugin && this.plugin.settings ? this.plugin.settings.ai : null;
+    if (!ai) {
+      return { title: 'AI is not set up', body: 'Open Settings \u2192 Wireframy \u2192 AI.' };
+    }
+    if (!ai.enabled) {
+      return {
+        title: 'AI is off',
+        body: 'The genie needs it switched on. Go to Settings \u2192 Wireframy \u2192 AI and ' +
+              'turn on "Enable AI features". Nothing is sent anywhere until you ask it something.'
+      };
+    }
+    if (!String(ai.apiKey || '').trim()) {
+      const p = aiProvider(this.plugin.settings);
+      return {
+        title: 'No API key yet',
+        body: 'Add one in Settings \u2192 Wireframy \u2192 AI. You need a key from ' +
+              p.keysAt + ', and you pay them directly for what you use.'
+      };
+    }
+    return null;
+  }
+
   /* Reads settings that may not be there yet. buildPanel() runs inside the
    * view's build(), which runs inside setViewData — early enough that assuming
    * a fully loaded plugin is how a decorative panel takes the whole board down
@@ -3757,6 +3905,17 @@ class GenieChat {
     log.empty();
 
     if (this.whoEl) this.whoEl.setText(this.providerLabel());
+
+    /* Off or unconfigured: say so where it cannot be missed, and stop the
+     * composer accepting a question that would only be refused. */
+    const gate = this.aiGate();
+    this.setComposerEnabled(!gate);
+    if (gate) {
+      const g = log.createDiv({ cls: 'wire-gn-gate' });
+      g.createDiv({ cls: 'wire-gn-gate-h', text: gate.title });
+      g.createDiv({ cls: 'wire-gn-gate-p', text: gate.body });
+      return;
+    }
 
     if (!this.turns.length) {
       const e = log.createDiv({ cls: 'wire-gn-empty' });
@@ -6117,11 +6276,15 @@ class WireEditorView extends TextFileView {
   installPointer() {
     const stage = this.stageEl;
 
-    this.registerDomEvent(stage, 'pointerdown', (evt) => this.onDown(evt));
+    /* A click inside the genie panel is not a click on the board. onDown
+     * deselects, starts a marquee and takes pointer capture, which is what
+     * made every button in that panel appear dead. */
+    this.registerDomEvent(stage, 'pointerdown', (evt) => { if (!fromChrome(evt)) this.onDown(evt); });
     this.registerDomEvent(stage, 'pointermove', (evt) => this.onMove(evt));
     this.registerDomEvent(stage, 'pointerup', (evt) => this.onUp(evt));
     this.registerDomEvent(stage, 'pointercancel', (evt) => this.onUp(evt));
     this.registerDomEvent(stage, 'dblclick', (evt) => {
+      if (fromChrome(evt)) return;
       // target is unreliable under pointer capture; hit-test instead
       const hit = this.elementAt(this.docPoint(evt));
       if (hit) { evt.preventDefault(); this.startEdit(hit.id); return; }
@@ -6132,26 +6295,28 @@ class WireEditorView extends TextFileView {
         this.startEditLink(link.id);
       }
     });
-    this.registerDomEvent(stage, 'contextmenu', (evt) => evt.preventDefault());
+    this.registerDomEvent(stage, 'contextmenu', (evt) => { if (!fromChrome(evt)) evt.preventDefault(); });
 
     // Cmd/Ctrl+C, X and V arrive as these events — and so do the native Edit
     // menu items — which is why the editor does not bind those keys itself.
     this.registerDomEvent(stage, 'copy', (evt) => {
-      if (this.editing) return;
+      if (this.editing || fromChrome(evt)) return;
       const text = this.copySelection();
       if (!text) return;
       evt.preventDefault();
       if (evt.clipboardData) evt.clipboardData.setData('text/plain', text);
     });
     this.registerDomEvent(stage, 'cut', (evt) => {
-      if (this.editing) return;
+      if (this.editing || fromChrome(evt)) return;
       const text = this.cutSelection();
       if (!text) return;
       evt.preventDefault();
       if (evt.clipboardData) evt.clipboardData.setData('text/plain', text);
     });
     this.registerDomEvent(stage, 'paste', (evt) => {
-      if (this.editing) return;
+      /* The genie's composer has its own paste handler for screenshots. Both
+       * used to fire, so pasting an image also tried to paste board elements. */
+      if (this.editing || fromChrome(evt)) return;
       const text = evt.clipboardData ? evt.clipboardData.getData('text/plain') : '';
       const clip = parseClip(text);
       if (!clip && !WIRE_CLIPBOARD) return;
@@ -6547,6 +6712,10 @@ class WireEditorView extends TextFileView {
 
   installKeys() {
     this.registerDomEvent(this.stageEl, 'keydown', (evt) => {
+      /* Typing in the genie, or in any field mounted over the board, is not a
+       * board shortcut. Without this, `c`, Enter, the arrows and Backspace all
+       * reached the document while someone was mid-sentence. */
+      if (fromChrome(evt)) return;
       if (evt.key === 'Escape' && this.presenting) {
         evt.preventDefault();
         this.setPresenting(false);
@@ -6582,6 +6751,7 @@ class WireEditorView extends TextFileView {
       }
     });
     this.registerDomEvent(this.stageEl, 'keyup', (evt) => {
+      if (fromChrome(evt)) return;
       if (evt.key === ' ') { this.spaceDown = false; this.stageEl.classList.remove('wire-grab'); }
     });
   }
@@ -7898,6 +8068,8 @@ module.exports.__internals = {
   aiRequest: aiRequest,
   aiProviderId: aiProviderId,
   aiSafeModel: aiSafeModel,
+  aiKnownModel: aiKnownModel,
+  AI_CUSTOM_MODEL: AI_CUSTOM_MODEL,
   aiModelFor: aiModelFor,
   aiSystemPrompt: aiSystemPrompt,
   elementsFromDsl: elementsFromDsl,
@@ -7916,6 +8088,7 @@ module.exports.__internals = {
   defTakesRows: defTakesRows,
   WIRE_CLIP_KIND: WIRE_CLIP_KIND,
   buildIconSvg: buildIconSvg,
+  fromChrome: fromChrome,
   emptyDoc: emptyDoc,
   WireEditorView: WireEditorView,
   ICON_SPECS: ICON_SPECS,
